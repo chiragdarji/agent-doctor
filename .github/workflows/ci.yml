@@ -28,7 +28,7 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Test (structural only — no API key needed)
-        run: npm run test:run -- structural
+      - name: Test (structural + semantic unit tests — no API key needed)
+        run: npm run test:run
         env:
           NODE_ENV: test

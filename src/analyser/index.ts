@@ -1,10 +1,11 @@
 import { parseFile } from '../parser/index.js';
 import { runStructuralAnalysis } from './structural.js';
+import { analyseSemantics } from './semantic.js';
 import type { AnalysisLayer, AnalysisResult, Config, Grade, Issue, Severity } from '../types.js';
 
 /**
  * Analyses a single instruction file and returns a full AnalysisResult.
- * Runs the layers specified in `config.layers` (v0.1: structural only).
+ * Runs the layers specified in `config.layers`.
  */
 export async function analyse(filePath: string, config: Config): Promise<AnalysisResult> {
   const parsed = parseFile(filePath);
@@ -16,11 +17,12 @@ export async function analyse(filePath: string, config: Config): Promise<Analysi
     usedLayers.push('structural');
   }
 
-  // Semantic layer — v0.2
-  // if (config.layers.includes('semantic')) {
-  //   issues.push(...await analyseSemantics(parsed.content, filePath, config));
-  //   usedLayers.push('semantic');
-  // }
+  if (config.layers.includes('semantic')) {
+    const semanticIssues = await analyseSemantics(parsed.content, filePath, config);
+    const filtered = semanticIssues.filter((i) => config.rules[i.ruleId] !== 'off');
+    issues.push(...filtered);
+    usedLayers.push('semantic');
+  }
 
   const score = calculateScore(issues);
 
