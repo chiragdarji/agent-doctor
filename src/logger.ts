@@ -18,7 +18,7 @@ function createLogger(minLevel: LogLevel): Logger {
   const min = LEVELS[minLevel];
 
   function log(level: LogLevel, message: string): void {
-    if (LEVELS[level] !== undefined && (LEVELS[level] as number) >= min) {
+    if (LEVELS[level] !== undefined && LEVELS[level] >= min) {
       process.stderr.write(`[agent-doctor:${level}] ${message}\n`);
     }
   }
