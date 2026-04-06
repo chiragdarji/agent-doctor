@@ -170,6 +170,166 @@ Then from Claude Code:
 
 ---
 
+## Programmatic API
+
+Install as a dependency:
+
+```bash
+npm install @chiragdarji/agent-doctor
+```
+
+### Basic usage
+
+```typescript
+import { analyse, loadConfig } from '@chiragdarji/agent-doctor';
+
+const config = loadConfig(process.cwd()); // loads .agentdoctor.json or defaults
+const result = await analyse('./CLAUDE.md', config);
+
+console.log(result.score);   // 0–100
+console.log(result.grade);   // 'A' | 'B' | 'C' | 'D' | 'F'
+console.log(result.issues);  // Issue[]
+```
+
+### Analyse multiple files
+
+```typescript
+import { analyseAll, discoverFiles, loadConfig } from '@chiragdarji/agent-doctor';
+
+const config = loadConfig(process.cwd());
+const files = discoverFiles(process.cwd()); // auto-discovers all instruction files
+const results = await analyseAll(files, config);
+
+for (const result of results) {
+  console.log(`${result.file}: ${result.score}/100 (${result.grade})`);
+}
+```
+
+### Structural-only (no API key needed)
+
+```typescript
+import { analyse, DEFAULT_CONFIG } from '@chiragdarji/agent-doctor';
+
+const result = await analyse('./CLAUDE.md', {
+  ...DEFAULT_CONFIG,
+  layers: ['structural'],
+});
+```
+
+### Custom rule thresholds
+
+```typescript
+import { analyse, loadConfig } from '@chiragdarji/agent-doctor';
+
+const config = {
+  ...loadConfig(process.cwd()),
+  tokenBudgetWarning: 200,        // stricter token limit per section
+  rules: {
+    'empty-section': 'off',       // silence a specific rule
+    'missing-always-apply': 'off',
+  },
+  failOn: 'warning',              // fail CI on warnings, not just criticals
+};
+
+const result = await analyse('./CLAUDE.md', config);
+process.exit(result.issues.some(i => i.severity === config.failOn) ? 1 : 0);
+```
+
+### Result shape
+
+```typescript
+interface AnalysisResult {
+  file: string;           // absolute path to the analysed file
+  score: number;          // 0–100 (100 = no issues)
+  grade: 'A' | 'B' | 'C' | 'D' | 'F';
+  issues: Issue[];
+  tokenCount: number;     // total tokens in the file
+  analysedAt: string;     // ISO timestamp
+  layers: ('structural' | 'semantic')[];
+}
+
+interface Issue {
+  ruleId: RuleId;
+  severity: 'critical' | 'warning' | 'suggestion';
+  message: string;
+  suggestion: string;
+  line?: number;          // line number in source file
+  context?: string;       // offending text snippet
+}
+```
+
+---
+
+## CI / CD Integration
+
+Exit codes:
+- `0` — no issues at or above `--fail-on` threshold
+- `1` — issues found at or above threshold
+- `2` — file not found or parse error
+
+### GitHub Actions
+
+```yaml
+# .github/workflows/agent-doctor.yml
+name: Agent Instructions Health Check
+
+on: [push, pull_request]
+
+jobs:
+  agent-doctor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check agent instruction files
+        run: npx @chiragdarji/agent-doctor --all --structural-only --fail-on warning
+```
+
+### Fail on warnings (strict mode)
+
+```bash
+npx @chiragdarji/agent-doctor CLAUDE.md --fail-on warning
+```
+
+### Structural-only in CI (no API key needed)
+
+```bash
+npx @chiragdarji/agent-doctor --all --structural-only
+```
+
+### JSON output for downstream processing
+
+```bash
+npx @chiragdarji/agent-doctor CLAUDE.md --format json | jq '.issues[] | select(.severity == "critical")'
+```
+
+---
+
+## Adding a New Structural Rule
+
+1. Create `src/rules/structural/<rule-id>.ts` exporting a `StructuralRule`:
+
+```typescript
+import type { Issue, StructuralRule } from '../../types.js';
+
+/** Detects ... */
+export const myRule: StructuralRule = (content, filePath) => {
+  // return [] to pass, or Issue[] to flag
+  return [];
+};
+```
+
+2. Register it in `src/rules/structural/index.ts`
+3. Add it to the `rules` array in `src/analyser/structural.ts`
+4. Add the `RuleId` to `src/types.ts`
+5. Add fixtures in `tests/fixtures/` and tests in `tests/structural.test.ts`
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full guide.
+
+---
+
 ## How It Works
 
 ```
@@ -191,13 +351,14 @@ All analysis runs locally. Nothing is stored.
 
 ## Roadmap
 
-- [ ] CLI — `npx @chiragdarji/agent-doctor <file>`
-- [ ] Structural layer (zero API cost)
-- [ ] Semantic layer (Claude Sonnet)
-- [ ] MCP server mode
+- [x] CLI — `npx @chiragdarji/agent-doctor <file>`
+- [x] Structural layer (zero API cost)
+- [x] CI/CD mode (exit code 1 on critical)
+- [x] Programmatic API (`analyse`, `analyseAll`, `discoverFiles`)
+- [ ] Semantic layer (Claude Sonnet) — v0.2
+- [ ] MCP server mode — v0.2
 - [ ] `--fix` auto-apply suggestions
 - [ ] VS Code extension (inline diagnostics)
-- [ ] CI/CD mode (exit code 1 on critical)
 - [ ] GitHub Action
 - [ ] Rule packs: `cursor-pack`, `claude-code-pack`, `langgraph-pack`
 - [ ] Cross-file conflict detection (CLAUDE.md vs AGENTS.md)

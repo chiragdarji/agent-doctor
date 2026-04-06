@@ -1,0 +1,10 @@
+---
+description: TypeScript rules
+globs: "**/*.ts"
+---
+
+# TypeScript Standards
+
+- Use strict mode
+- No `any` types
+- Named exports only

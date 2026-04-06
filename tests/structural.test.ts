@@ -203,3 +203,171 @@ describe('.cursorrules fixture', () => {
     expect(legacyIssues[0]!.severity).toBe('critical');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Fixture: mdc-no-always-apply.mdc (has frontmatter, missing alwaysApply)
+// ---------------------------------------------------------------------------
+describe('mdc-no-always-apply.mdc fixture', () => {
+  it('passes missing-frontmatter but flags missing-always-apply', () => {
+    const parsed = parseFile(resolve(FIXTURES, 'mdc-no-always-apply.mdc'));
+    const issues = runStructuralAnalysis(parsed, DEFAULT_CONFIG);
+    const ruleIds = issues.map((i) => i.ruleId);
+    expect(ruleIds).not.toContain('missing-frontmatter');
+    expect(ruleIds).toContain('missing-always-apply');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fixture: large-section.md (token budget)
+// ---------------------------------------------------------------------------
+describe('large-section.md fixture', () => {
+  it('flags token-budget-exceeded when threshold is 200 tokens', () => {
+    const parsed = parseFile(resolve(FIXTURES, 'large-section.md'));
+    // The Behaviour section has 20 detailed rules — well over 200 tokens
+    const issues = runStructuralAnalysis(parsed, { ...DEFAULT_CONFIG, tokenBudgetWarning: 200 });
+    const budgetIssues = issues.filter((i) => i.ruleId === 'token-budget-exceeded');
+    expect(budgetIssues.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('does not flag token-budget-exceeded when threshold is raised to 2000', () => {
+    const parsed = parseFile(resolve(FIXTURES, 'large-section.md'));
+    const issues = runStructuralAnalysis(parsed, { ...DEFAULT_CONFIG, tokenBudgetWarning: 2000 });
+    const budgetIssues = issues.filter((i) => i.ruleId === 'token-budget-exceeded');
+    expect(budgetIssues).toHaveLength(0);
+  });
+
+  it('budget issue includes the section heading in context', () => {
+    const parsed = parseFile(resolve(FIXTURES, 'large-section.md'));
+    const issues = runStructuralAnalysis(parsed, { ...DEFAULT_CONFIG, tokenBudgetWarning: 50 });
+    const budgetIssue = issues.find((i) => i.ruleId === 'token-budget-exceeded');
+    expect(budgetIssue?.context).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fixture: nested.md (deeply nested headings)
+// ---------------------------------------------------------------------------
+describe('nested.md fixture', () => {
+  it('produces no critical or warning issues on well-structured nested headings', () => {
+    const parsed = parseFile(resolve(FIXTURES, 'nested.md'));
+    const issues = runStructuralAnalysis(parsed, DEFAULT_CONFIG);
+    const serious = issues.filter((i) => i.severity === 'critical' || i.severity === 'warning');
+    expect(serious).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Edge cases: missing-frontmatter
+// ---------------------------------------------------------------------------
+describe('missing-frontmatter edge cases', () => {
+  it('passes a .mdc file with only whitespace before ---', () => {
+    const issues = missingFrontmatter('\n---\nalwaysApply: true\n---\n# Hi', 'test.mdc');
+    // trimStart means leading newline is ignored — should pass
+    expect(issues).toHaveLength(0);
+  });
+
+  it('produces a suggestion string in the issue', () => {
+    const issues = missingFrontmatter('# No frontmatter', 'test.mdc');
+    expect(issues[0]!.suggestion).toBeTruthy();
+    expect(issues[0]!.suggestion.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Edge cases: missing-always-apply
+// ---------------------------------------------------------------------------
+describe('missing-always-apply edge cases', () => {
+  it('flags when alwaysApply is a string "true" (not boolean)', () => {
+    // YAML coercion: "true" string vs true boolean
+    const issues = missingAlwaysApply('---\nalwaysApply: "true"\n---\n# Hi', 'test.mdc');
+    // String "true" !== boolean true
+    expect(issues).toHaveLength(1);
+  });
+
+  it('flags when alwaysApply is 1 (not boolean true)', () => {
+    const issues = missingAlwaysApply('---\nalwaysApply: 1\n---\n# Hi', 'test.mdc');
+    expect(issues).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Edge cases: token-budget-exceeded
+// ---------------------------------------------------------------------------
+describe('token-budget-exceeded edge cases', () => {
+  it('includes line number in flagged issue', () => {
+    const rule = createTokenBudgetRule(5);
+    const issues = rule('# Big\n' + 'word '.repeat(50), 'CLAUDE.md');
+    expect(issues[0]!.line).toBe(1);
+  });
+
+  it('handles a file with no sections gracefully (no issues)', () => {
+    const rule = createTokenBudgetRule(500);
+    const issues = rule('No headings, just prose.', 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('flags multiple oversized sections independently', () => {
+    const rule = createTokenBudgetRule(5);
+    const content = ['# Big One', 'word '.repeat(30), '', '# Big Two', 'word '.repeat(30)].join('\n');
+    const issues = rule(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(2);
+    expect(issues[0]!.context).toBe('Big One');
+    expect(issues[1]!.context).toBe('Big Two');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Edge cases: empty-section
+// ---------------------------------------------------------------------------
+describe('empty-section edge cases', () => {
+  it('does not flag a section with only whitespace-looking content', () => {
+    // Section with actual content (not just blank lines)
+    const issues = emptySection('# Section\n  \n  content  \n', 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('flags a section whose body is only blank lines', () => {
+    const issues = emptySection('# Empty\n\n\n\n# HasContent\nContent.', 'CLAUDE.md');
+    const emptySectionIssue = issues.filter((i) => i.context === 'Empty');
+    expect(emptySectionIssue).toHaveLength(1);
+  });
+
+  it('includes the correct line number for empty sections', () => {
+    const issues = emptySection('# First\nContent.\n\n# EmptyAtLine5\n\n# Third\nContent.', 'CLAUDE.md');
+    expect(issues[0]!.line).toBe(4);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// runStructuralAnalysis — config.rules filtering
+// ---------------------------------------------------------------------------
+describe('runStructuralAnalysis config filtering', () => {
+  it('suppresses a rule set to "off"', () => {
+    const parsed = parseFile(resolve(FIXTURES, 'bad.mdc'));
+    const config = { ...DEFAULT_CONFIG, rules: { 'missing-frontmatter': 'off' as const } };
+    const issues = runStructuralAnalysis(parsed, config);
+    expect(issues.find((i) => i.ruleId === 'missing-frontmatter')).toBeUndefined();
+  });
+
+  it('keeps rules not listed in config.rules', () => {
+    const parsed = parseFile(resolve(FIXTURES, 'bad.mdc'));
+    const config = { ...DEFAULT_CONFIG, rules: { 'missing-frontmatter': 'off' as const } };
+    const issues = runStructuralAnalysis(parsed, config);
+    // missing-always-apply should still fire
+    expect(issues.find((i) => i.ruleId === 'missing-always-apply')).toBeDefined();
+  });
+
+  it('suppresses all rules when all are set to "off"', () => {
+    const parsed = parseFile(resolve(FIXTURES, 'bad.mdc'));
+    const config = {
+      ...DEFAULT_CONFIG,
+      rules: {
+        'missing-frontmatter': 'off' as const,
+        'missing-always-apply': 'off' as const,
+        'empty-section': 'off' as const,
+      },
+    };
+    const issues = runStructuralAnalysis(parsed, config);
+    expect(issues).toHaveLength(0);
+  });
+});
