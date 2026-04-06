@@ -26,12 +26,17 @@ program
   .option('--fail-on <severity>', 'Exit with code 1 if any issue meets this severity', 'critical')
   .option('--format <format>', 'Output format: text or json', 'text')
   .option('--structural-only', 'Skip semantic layer (no API key required)')
+  .option(
+    '--model <id>',
+    'Override LLM model (e.g. gpt-4o uses OPENAI_API_KEY; claude-* uses ANTHROPIC_API_KEY)',
+  )
   .option('--mcp', 'Start MCP server mode (v0.2)')
   .action(async (file: string | undefined, opts: {
     all?: boolean;
     failOn: string;
     format: string;
     structuralOnly?: boolean;
+    model?: string;
     mcp?: boolean;
   }) => {
     if (opts.mcp) {
@@ -44,6 +49,10 @@ program
 
     const cwd = process.cwd();
     const config = loadConfig(cwd);
+
+    if (opts.model !== undefined && opts.model.length > 0) {
+      config.model = opts.model;
+    }
 
     if (opts.structuralOnly) {
       config.layers = ['structural'];
