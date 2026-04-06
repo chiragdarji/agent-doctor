@@ -29,6 +29,6 @@ jobs:
         run: npm run lint
 
       - name: Test (structural only — no API key needed)
-        run: npm run test:run -- --testPathPattern=structural
+        run: npm run test:run -- structural
         env:
           NODE_ENV: test
