@@ -1,0 +1,14 @@
+---
+alwaysApply: true
+description: TypeScript coding standards
+---
+
+# Code Style
+
+- TypeScript strict mode — no `any`
+- Named exports only
+- All async functions must handle errors with try/catch
+
+# Testing
+
+Run tests with `npm test`. All new functions require a test.

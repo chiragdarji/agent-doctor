@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/settings.json
+.idea/
+*.swp
+
+# Test output
+coverage/
+.vitest/
+
+# Temp
+tmp/
+temp/
+
+# Lock files — commit package-lock.json, not yarn/pnpm
+yarn.lock
+pnpm-lock.yaml
