@@ -1,23 +1,15 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { logger } from '../logger.js';
 import { SEMANTIC_SYSTEM_PROMPT } from './semantic-prompt.js';
+import { createClientFromConfig, resolveProvider } from './llm-client.js';
+import type { LLMClient } from './llm-client.js';
 import type { Config, Issue } from '../types.js';
 
-/** Minimal interface for the Anthropic client used by analyseSemantics — injectable for testing. */
-export interface AnthropicClient {
-  messages: {
-    create(params: {
-      model: string;
-      max_tokens: number;
-      system: string;
-      messages: Array<{ role: 'user' | 'assistant'; content: string }>;
-    }): Promise<{ content: Array<{ type: string; text?: string }> }>;
-  };
-}
+// Re-export so existing tests that import AnthropicClient by name still compile.
+export type { LLMClient as AnthropicClient } from './llm-client.js';
 
 // ---------------------------------------------------------------------------
-// Zod schema — validates Claude's response before we trust it
+// Zod schema — validates Claude/OpenAI response before we trust it
 // ---------------------------------------------------------------------------
 const SEMANTIC_RULE_IDS = [
   'decision-loop',
@@ -47,15 +39,13 @@ const ResponseSchema = z.array(IssueSchema).max(8);
 // ---------------------------------------------------------------------------
 
 /**
- * Extracts a JSON string from a Claude response that may be wrapped in
+ * Extracts a JSON string from a model response that may be wrapped in
  * markdown code fences or preceded/followed by prose.
  */
 export function extractJson(text: string): string {
-  // ```json ... ``` or ``` ... ```
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fenced?.[1]) return fenced[1].trim();
 
-  // Bare JSON array anywhere in the text
   const arrayMatch = text.match(/\[[\s\S]*\]/);
   if (arrayMatch?.[0]) return arrayMatch[0];
 
@@ -67,37 +57,41 @@ export function extractJson(text: string): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Sends the instruction file content to Claude and returns semantic issues.
+ * Sends the instruction file content to the configured LLM and returns semantic issues.
  * Returns an empty array (without throwing) on any API or parsing failure.
- * Requires ANTHROPIC_API_KEY to be set; logs a warning and returns [] if not.
  *
- * @param client - Optional Anthropic client override (used in tests to inject a mock).
+ * Provider selection:
+ *  - Set ANTHROPIC_API_KEY to use Claude (default, any claude-* model)
+ *  - Set OPENAI_API_KEY to use OpenAI (gpt-*, o1-*, o3-*, o4-* models)
+ *  - Or set config.provider explicitly to override inference
+ *
+ * @param client - Optional LLMClient override (used in tests to inject a mock).
  */
 export async function analyseSemantics(
   content: string,
   filePath: string,
   config: Config,
-  client?: AnthropicClient,
+  client?: LLMClient,
 ): Promise<Issue[]> {
-  const apiKey = process.env['ANTHROPIC_API_KEY'];
+  // Resolve client: injected > factory > missing key
+  const resolvedClient = client ?? createClientFromConfig(config);
 
-  if (!client) {
-    if (!apiKey) {
-      logger.warn(
-        'ANTHROPIC_API_KEY is not set — skipping semantic analysis. ' +
-          'Run with --structural-only to suppress this warning.',
-      );
-      return [];
-    }
-    client = new Anthropic({ apiKey });
+  if (!resolvedClient) {
+    const provider = resolveProvider(config);
+    const envVar = provider === 'openai' ? 'OPENAI_API_KEY' : 'ANTHROPIC_API_KEY';
+    logger.warn(
+      `${envVar} is not set — skipping semantic analysis. ` +
+        `Run with --structural-only to suppress this warning.`,
+    );
+    return [];
   }
 
   let rawText: string;
 
   try {
-    const response = await client.messages.create({
+    const response = await resolvedClient.complete({
       model: config.model,
-      max_tokens: 2048,
+      maxTokens: 2048,
       system: SEMANTIC_SYSTEM_PROMPT,
       messages: [
         {
@@ -109,14 +103,7 @@ export async function analyseSemantics(
         },
       ],
     });
-
-    const block = response.content[0];
-    if (!block || block.type !== 'text') {
-      logger.warn('Unexpected response structure from Claude API — no text block');
-      return [];
-    }
-
-    rawText = block.text ?? '';
+    rawText = response.text;
   } catch (err) {
     logger.error(`Semantic analysis API call failed: ${String(err)}`);
     return [];
@@ -134,7 +121,7 @@ export async function analyseSemantics(
   // Validate shape with Zod
   const validated = ResponseSchema.safeParse(parsed);
   if (!validated.success) {
-    logger.warn(`Semantic response failed schema validation: ${validated.error.message}`);
+    logger.warn(`Semantic response failed schema validation: ${JSON.stringify(validated.error.issues, null, 2)}`);
     return [];
   }
 

@@ -7,7 +7,7 @@ instruction files (CLAUDE.md, AGENTS.md, .cursor/rules/*.mdc, GEMINI.md).
 
 It runs two layers:
 1. **Structural layer** — fast, zero API cost, regex/AST-based checks
-2. **Semantic layer** — Claude Sonnet-powered, finds instruction conflicts, ambiguities, broken logic
+2. **Semantic layer** — LLM-powered (Claude or OpenAI), finds instruction conflicts, ambiguities, broken logic
 
 Built with TypeScript + Node.js. Distributed as an npm package (`npx agent-doctor`).
 Also exposes an MCP server for use inside Claude Code and Cursor.
@@ -20,7 +20,7 @@ Also exposes an MCP server for use inside Claude Code and Cursor.
 - **Language**: TypeScript (strict mode)
 - **CLI framework**: Commander.js
 - **Testing**: Vitest
-- **LLM**: Anthropic SDK (`@anthropic-ai/sdk`) — claude-sonnet-4-6
+- **LLM**: Anthropic SDK (`@anthropic-ai/sdk`) or OpenAI SDK (`openai`) — provider auto-detected from model name
 - **MCP**: `@modelcontextprotocol/sdk`
 - **Package manager**: npm
 - **Build**: tsup
@@ -52,7 +52,9 @@ agent-doctor/
 │   ├── analyser/
 │   │   ├── index.ts            # Orchestrates both layers
 │   │   ├── structural.ts       # Layer 1: fast structural checks
-│   │   └── semantic.ts         # Layer 2: Claude Sonnet analysis
+│   │   ├── semantic.ts         # Layer 2: LLM analysis
+│   │   ├── llm-client.ts       # Unified LLMClient interface (Anthropic + OpenAI adapters)
+│   │   └── semantic-prompt.ts  # System prompt for semantic analysis
 │   ├── parser/
 │   │   ├── index.ts            # Routes to correct parser by file type
 │   │   ├── markdown.ts         # CLAUDE.md / AGENTS.md parser
@@ -144,23 +146,36 @@ Rules to implement first:
 
 ## Semantic Analysis (Layer 2)
 
-The semantic layer sends the file content to Claude with a structured system prompt.
-Claude returns JSON matching `Issue[]`.
+The semantic layer sends the file content to an LLM with a structured system prompt.
+The model returns JSON matching `Issue[]`, validated with Zod before returning.
 
 ```typescript
+// src/analyser/llm-client.ts — unified interface
+interface LLMClient {
+  complete(params: { model: string; system: string; messages: LLMMessage[]; maxTokens: number }): Promise<LLMResponse>;
+}
+
+// Factory — auto-selects provider from model name or config.provider override
+createClientFromConfig(config: Config): LLMClient | null
+
 // src/analyser/semantic.ts
 async function analyseSemantics(
   content: string,
   filePath: string,
-  config: Config
+  config: Config,
+  client?: LLMClient   // optional injection for tests
 ): Promise<Issue[]>
 ```
 
-**System prompt approach:**
-- Send the full instruction file content as user message
-- System prompt defines each semantic rule with examples
-- Ask Claude to return ONLY a JSON array of `Issue` objects
-- Parse and validate response with Zod before returning
+**Provider selection (in priority order):**
+1. `client` param injected directly (tests + custom integrations)
+2. `config.provider` explicit override (`'anthropic'` | `'openai'`)
+3. Inferred from `config.model` name prefix (`gpt-*`, `o1-*`, `o3-*`, `o4-*` → OpenAI)
+4. Default: Anthropic (any `claude-*` model)
+
+**API keys:**
+- `ANTHROPIC_API_KEY` for Claude
+- `OPENAI_API_KEY` for OpenAI
 
 Never send codebase files to the API — only the instruction file being analysed.
 
@@ -238,10 +253,13 @@ Expose two MCP tools:
 ## Environment Variables
 
 ```bash
-ANTHROPIC_API_KEY=         # required for semantic layer
+ANTHROPIC_API_KEY=         # required for semantic layer with Claude models
+OPENAI_API_KEY=            # required for semantic layer with OpenAI models (gpt-*, o1-*, o3-*, o4-*)
 AGENT_DOCTOR_MODEL=        # optional, default: claude-sonnet-4-6
 AGENT_DOCTOR_LOG_LEVEL=    # optional: debug | info | warn | error
 ```
+
+The provider is inferred from the model name. Set `ANTHROPIC_API_KEY` for Claude, or `OPENAI_API_KEY` for OpenAI — only the matching key is required.
 
 ---
 
@@ -255,12 +273,13 @@ AGENT_DOCTOR_LOG_LEVEL=    # optional: debug | info | warn | error
 6. `src/analyser/structural.ts` — orchestrates structural rules
 7. `src/output/formatter.ts` — console output
 8. `src/cli.ts` — wire up Commander.js (structural layer working end-to-end)
-9. `src/analyser/semantic.ts` — Claude API integration
-10. `src/output/reporter.ts` — JSON / Markdown reports
-11. `src/mcp-server.ts` — MCP server
-12. `tests/` — test coverage for all rules with fixtures
+9. `src/analyser/llm-client.ts` — unified LLMClient interface + Anthropic/OpenAI adapters
+10. `src/analyser/semantic.ts` — LLM API integration (Claude + OpenAI)
+11. `src/output/reporter.ts` — JSON / Markdown reports
+12. `src/mcp-server.ts` — MCP server
+13. `tests/` — test coverage for all rules with fixtures
 
-Ship after step 8. Steps 9–12 are v0.2.
+Ship after step 8. Steps 9–13 are v0.2.
 
 ---
 

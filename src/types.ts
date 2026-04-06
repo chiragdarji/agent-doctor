@@ -72,8 +72,12 @@ export interface Section {
   tokenCount: number;
 }
 
+export type LLMProvider = 'anthropic' | 'openai';
+
 export interface Config {
   model: string;
+  /** LLM provider. If omitted, inferred from the model name. */
+  provider?: LLMProvider;
   layers: AnalysisLayer[];
   rules: Partial<Record<RuleId, Severity | 'off'>>;
   tokenBudgetWarning: number;

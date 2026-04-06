@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { extractJson, analyseSemantics } from '../src/analyser/semantic.js';
 import { analyse } from '../src/analyser/index.js';
 import { DEFAULT_CONFIG } from '../src/types.js';
-import type { AnthropicClient } from '../src/analyser/semantic.js';
+import type { LLMClient } from '../src/analyser/llm-client.js';
 import type { AnalysisLayer, Config } from '../src/types.js';
 
 const FIXTURES = resolve(import.meta.dirname, 'fixtures');
@@ -17,34 +17,24 @@ const SEMANTIC_CONFIG: Config = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Builds a mock AnthropicClient that returns the given text response. */
-function mockClient(text: string): AnthropicClient {
+/** Builds a mock LLMClient that returns the given text response. */
+function mockClient(text: string): LLMClient {
   return {
-    messages: {
-      create: vi.fn().mockResolvedValue({
-        content: [{ type: 'text', text }],
-      }),
-    },
+    complete: vi.fn().mockResolvedValue({ text }),
   };
 }
 
-/** Builds a mock AnthropicClient that rejects with the given error. */
-function failingClient(error = new Error('Network error')): AnthropicClient {
+/** Builds a mock LLMClient that rejects with the given error. */
+function failingClient(error = new Error('Network error')): LLMClient {
   return {
-    messages: {
-      create: vi.fn().mockRejectedValue(error),
-    },
+    complete: vi.fn().mockRejectedValue(error),
   };
 }
 
-/** Builds a mock AnthropicClient that returns a non-text block. */
-function nonTextClient(): AnthropicClient {
+/** Builds a mock LLMClient that returns an empty string (simulates no-text response). */
+function nonTextClient(): LLMClient {
   return {
-    messages: {
-      create: vi.fn().mockResolvedValue({
-        content: [{ type: 'tool_use', id: 'x', name: 'y' }],
-      }),
-    },
+    complete: vi.fn().mockResolvedValue({ text: '' }),
   };
 }
 
@@ -183,7 +173,7 @@ describe('analyseSemantics', () => {
   it('uses the model from config when creating the request', async () => {
     const client = mockClient('[]');
     await analyseSemantics('# Test\nContent', 'CLAUDE.md', { ...DEFAULT_CONFIG, model: 'claude-opus-4-6' }, client);
-    expect(client.messages.create).toHaveBeenCalledWith(
+    expect(client.complete).toHaveBeenCalledWith(
       expect.objectContaining({ model: 'claude-opus-4-6' }),
     );
   });

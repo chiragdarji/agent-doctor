@@ -34,17 +34,20 @@ There's a difference.
 No regex catches these. No schema validates them.  
 They require semantic reasoning — understanding what the agent will *do* with each instruction.
 
-`agent-doctor` uses Claude to evaluate your instructions the way your agent will read them.
+`agent-doctor` uses Claude (or OpenAI) to evaluate your instructions the way your agent will read them.
 
 ---
 
 ## Quickstart
 
 ```bash
-# Analyse a single file
-npx @chiragdarji/agent-doctor CLAUDE.md
+# Analyse a single file (uses Claude by default)
+ANTHROPIC_API_KEY=sk-ant-... npx @chiragdarji/agent-doctor CLAUDE.md
 
-# Analyse all agent instruction files in a project  
+# Use OpenAI instead
+OPENAI_API_KEY=sk-... npx @chiragdarji/agent-doctor CLAUDE.md --model gpt-4o
+
+# Analyse all agent instruction files in a project
 npx @chiragdarji/agent-doctor --all
 
 # Run as MCP tool (from Claude Code or Cursor)
@@ -152,7 +155,7 @@ Then from Claude Code:
 ## Configuration
 
 ```json
-// .agentdoctor.json
+// .agentdoctor.json  (Claude — default)
 {
   "model": "claude-sonnet-4-6",
   "layers": ["structural", "semantic"],
@@ -167,6 +170,26 @@ Then from Claude Code:
   "ignore": [".claude/agents/legacy-*.md"]
 }
 ```
+
+```json
+// .agentdoctor.json  (OpenAI)
+{
+  "model": "gpt-4o",
+  "provider": "openai",
+  "layers": ["structural", "semantic"],
+  "rules": {
+    "decision-loop": "error",
+    "vague-boundary": "warn"
+  },
+  "tokenBudgetWarning": 500
+}
+```
+
+Set the corresponding API key:
+- Claude: `export ANTHROPIC_API_KEY=sk-ant-...`
+- OpenAI: `export OPENAI_API_KEY=sk-...`
+
+The provider is inferred automatically from the model name (`gpt-*`, `o1-*`, `o3-*`, `o4-*` → OpenAI; everything else → Anthropic). Use the `provider` field to override.
 
 ---
 
@@ -203,6 +226,30 @@ const results = await analyseAll(files, config);
 for (const result of results) {
   console.log(`${result.file}: ${result.score}/100 (${result.grade})`);
 }
+```
+
+### Use OpenAI for semantic analysis
+
+```typescript
+import { analyse, DEFAULT_CONFIG } from '@chiragdarji/agent-doctor';
+
+// Set process.env.OPENAI_API_KEY before calling
+const result = await analyse('./CLAUDE.md', {
+  ...DEFAULT_CONFIG,
+  model: 'gpt-4o',
+  provider: 'openai',   // optional — inferred from model name if omitted
+});
+```
+
+### Inject a custom LLM client
+
+```typescript
+import { analyse, DEFAULT_CONFIG, createOpenAIClient } from '@chiragdarji/agent-doctor';
+
+const client = createOpenAIClient(process.env.OPENAI_API_KEY!);
+// createAnthropicClient(key) also available
+
+const result = await analyse('./CLAUDE.md', DEFAULT_CONFIG, { llmClient: client });
 ```
 
 ### Structural-only (no API key needed)
@@ -338,14 +385,20 @@ Your CLAUDE.md
       ├─► Layer 1: Structural parser (regex + AST, zero API cost)
       │         └─► Frontmatter, token counts, format issues
       │
-      └─► Layer 2: Semantic evaluator (Claude Sonnet)
+      └─► Layer 2: Semantic evaluator (Claude or OpenAI)
                 └─► Reads instructions as an agent would
                 └─► Identifies conflicts, ambiguities, missing boundaries
-                └─► Returns structured JSON → formatted output
+                └─► Returns structured JSON → Zod-validated → formatted output
 ```
 
-The semantic layer sends only your instruction file (never your codebase) to the Claude API.  
+The semantic layer sends only your instruction file (never your codebase) to the LLM API.
 All analysis runs locally. Nothing is stored.
+
+**Provider selection:**
+1. Set `ANTHROPIC_API_KEY` → uses Claude (default, any `claude-*` model)
+2. Set `OPENAI_API_KEY` → uses OpenAI (any `gpt-*`, `o1-*`, `o3-*`, `o4-*` model)
+3. Set `model` in config → provider is inferred from the model name
+4. Set `provider` explicitly → overrides inference
 
 ---
 
@@ -355,8 +408,9 @@ All analysis runs locally. Nothing is stored.
 - [x] Structural layer (zero API cost)
 - [x] CI/CD mode (exit code 1 on critical)
 - [x] Programmatic API (`analyse`, `analyseAll`, `discoverFiles`)
-- [ ] Semantic layer (Claude Sonnet) — v0.2
-- [ ] MCP server mode — v0.2
+- [x] Semantic layer (Claude Sonnet) — v0.2
+- [x] OpenAI support (`gpt-4o`, `o1-*`, `o3-*`, `o4-*` models) — v0.2
+- [ ] MCP server mode — v0.3
 - [ ] `--fix` auto-apply suggestions
 - [ ] VS Code extension (inline diagnostics)
 - [ ] GitHub Action
