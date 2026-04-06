@@ -1,5 +1,5 @@
 {
-  "name": "agent-doctor",
+  "name": "@chiragdarji/agent-doctor",
   "version": "0.1.0",
   "description": "Semantic health check for AI agent instruction files",
   "keywords": [

@@ -11,7 +11,7 @@
 ---
 
 <!-- DEMO PLACEHOLDER -->
-> 🎬 _Demo coming soon — `npx agent-doctor CLAUDE.md` catching a decision loop before it hits production_
+> 🎬 _Demo coming soon — `npx @chiragdarji/agent-doctor CLAUDE.md` catching a decision loop before it hits production_
 
 ---
 
@@ -42,13 +42,13 @@ They require semantic reasoning — understanding what the agent will *do* with 
 
 ```bash
 # Analyse a single file
-npx agent-doctor CLAUDE.md
+npx @chiragdarji/agent-doctor CLAUDE.md
 
 # Analyse all agent instruction files in a project  
-npx agent-doctor --all
+npx @chiragdarji/agent-doctor --all
 
 # Run as MCP tool (from Claude Code or Cursor)
-npx agent-doctor --mcp
+npx @chiragdarji/agent-doctor --mcp
 ```
 
 ### Example Output
@@ -135,7 +135,7 @@ Model         claude-sonnet-4-6
   "mcpServers": {
     "agent-doctor": {
       "command": "npx",
-      "args": ["agent-doctor", "--mcp"]
+      "args": ["@chiragdarji/agent-doctor", "--mcp"]
     }
   }
 }
@@ -191,7 +191,7 @@ All analysis runs locally. Nothing is stored.
 
 ## Roadmap
 
-- [ ] CLI — `npx agent-doctor <file>`
+- [ ] CLI — `npx @chiragdarji/agent-doctor <file>`
 - [ ] Structural layer (zero API cost)
 - [ ] Semantic layer (Claude Sonnet)
 - [ ] MCP server mode
