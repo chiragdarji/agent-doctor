@@ -18,7 +18,15 @@ export type RuleId =
   | 'missing-always-apply'
   | 'legacy-format'
   | 'token-budget-exceeded'
-  | 'empty-section';
+  | 'empty-section'
+  | 'duplicate-heading'
+  | 'missing-description'
+  | 'unclosed-code-block'
+  | 'conflicting-frontmatter'
+  | 'missing-file-glob'
+  | 'heading-depth-skip'
+  | 'negation-heavy'
+  | 'todo-in-instructions';
 
 export interface Issue {
   ruleId: RuleId;

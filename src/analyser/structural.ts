@@ -4,6 +4,14 @@ import {
   legacyFormat,
   createTokenBudgetRule,
   emptySection,
+  duplicateHeading,
+  missingDescription,
+  unclosedCodeBlock,
+  conflictingFrontmatter,
+  missingFileGlob,
+  headingDepthSkip,
+  negationHeavy,
+  todoInInstructions,
 } from '../rules/structural/index.js';
 import type { Config, Issue, ParsedFile, StructuralRule } from '../types.js';
 
@@ -13,11 +21,22 @@ import type { Config, Issue, ParsedFile, StructuralRule } from '../types.js';
  */
 export function runStructuralAnalysis(parsed: ParsedFile, config: Config): Issue[] {
   const rules: StructuralRule[] = [
+    // Format / frontmatter rules
     missingFrontmatter,
     missingAlwaysApply,
+    missingDescription,
+    conflictingFrontmatter,
+    missingFileGlob,
     legacyFormat,
-    createTokenBudgetRule(config.tokenBudgetWarning),
+    // Content quality rules
     emptySection,
+    duplicateHeading,
+    headingDepthSkip,
+    unclosedCodeBlock,
+    negationHeavy,
+    todoInInstructions,
+    // Token budget
+    createTokenBudgetRule(config.tokenBudgetWarning),
   ];
 
   // Pass rawContent so frontmatter-aware rules (missing-frontmatter, missing-always-apply)

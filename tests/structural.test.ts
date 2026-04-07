@@ -5,6 +5,14 @@ import { missingAlwaysApply } from '../src/rules/structural/missing-always-apply
 import { legacyFormat } from '../src/rules/structural/legacy-format.js';
 import { createTokenBudgetRule } from '../src/rules/structural/token-budget-exceeded.js';
 import { emptySection } from '../src/rules/structural/empty-section.js';
+import { duplicateHeading } from '../src/rules/structural/duplicate-heading.js';
+import { missingDescription } from '../src/rules/structural/missing-description.js';
+import { unclosedCodeBlock } from '../src/rules/structural/unclosed-code-block.js';
+import { conflictingFrontmatter } from '../src/rules/structural/conflicting-frontmatter.js';
+import { missingFileGlob } from '../src/rules/structural/missing-file-glob.js';
+import { headingDepthSkip } from '../src/rules/structural/heading-depth-skip.js';
+import { negationHeavy } from '../src/rules/structural/negation-heavy.js';
+import { todoInInstructions } from '../src/rules/structural/todo-in-instructions.js';
 import { runStructuralAnalysis } from '../src/analyser/structural.js';
 import { parseFile } from '../src/parser/index.js';
 import { DEFAULT_CONFIG } from '../src/types.js';
@@ -359,6 +367,278 @@ describe('empty-section edge cases', () => {
 });
 
 // ---------------------------------------------------------------------------
+// duplicate-heading
+// ---------------------------------------------------------------------------
+describe('duplicate-heading', () => {
+  it('does not flag unique headings', () => {
+    const issues = duplicateHeading('## Setup\nContent.\n## Usage\nContent.', 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('flags a heading that appears twice', () => {
+    const issues = duplicateHeading('## Setup\nContent.\n## Setup\nMore content.', 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.ruleId).toBe('duplicate-heading');
+    expect(issues[0]!.context).toBe('Setup');
+  });
+
+  it('is case-insensitive', () => {
+    const issues = duplicateHeading('## setup\nContent.\n## SETUP\nMore.', 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+  });
+
+  it('records relatedLine pointing to the first occurrence', () => {
+    const issues = duplicateHeading('## Rules\nContent.\n\n## Rules\nDuplicate.', 'CLAUDE.md');
+    expect(issues[0]!.relatedLine).toBe(1);
+    expect(issues[0]!.line).toBe(4);
+  });
+
+  it('flags multiple duplicate headings independently', () => {
+    const content = '## A\nContent.\n## B\nContent.\n## A\nDup.\n## B\nDup.';
+    const issues = duplicateHeading(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// missing-description
+// ---------------------------------------------------------------------------
+describe('missing-description', () => {
+  it('does not flag non-.mdc files', () => {
+    const issues = missingDescription('# Heading\nContent.', 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('flags .mdc with no description field', () => {
+    const content = '---\nalwaysApply: true\n---\n# Rule\nContent.';
+    const issues = missingDescription(content, 'rule.mdc');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.ruleId).toBe('missing-description');
+  });
+
+  it('does not flag .mdc with a description', () => {
+    const content = '---\nalwaysApply: true\ndescription: TypeScript coding standards\n---\n# Rule';
+    const issues = missingDescription(content, 'rule.mdc');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('flags .mdc with an empty description', () => {
+    const content = '---\nalwaysApply: true\ndescription: ""\n---\n# Rule';
+    const issues = missingDescription(content, 'rule.mdc');
+    expect(issues).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// unclosed-code-block
+// ---------------------------------------------------------------------------
+describe('unclosed-code-block', () => {
+  it('does not flag properly closed code blocks', () => {
+    const content = '# Heading\n```ts\nconst x = 1;\n```\nMore content.';
+    const issues = unclosedCodeBlock(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('flags an unclosed backtick fence', () => {
+    const content = '# Heading\n```ts\nconst x = 1;\nNo closing fence.';
+    const issues = unclosedCodeBlock(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.ruleId).toBe('unclosed-code-block');
+    expect(issues[0]!.severity).toBe('critical');
+  });
+
+  it('flags an unclosed tilde fence', () => {
+    const content = '~~~bash\necho hello\n';
+    const issues = unclosedCodeBlock(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+  });
+
+  it('does not flag multiple properly closed blocks', () => {
+    const content = '```\nblock 1\n```\nText.\n```\nblock 2\n```';
+    const issues = unclosedCodeBlock(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('records the line number of the opening fence', () => {
+    const content = '# Section\nSome text.\n```ts\nUnclosed.';
+    const issues = unclosedCodeBlock(content, 'CLAUDE.md');
+    expect(issues[0]!.line).toBe(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// conflicting-frontmatter
+// ---------------------------------------------------------------------------
+describe('conflicting-frontmatter', () => {
+  it('does not flag non-.mdc files', () => {
+    const issues = conflictingFrontmatter('---\nalwaysApply: true\nglobs: "**/*.ts"\n---', 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('flags alwaysApply:true with globs set', () => {
+    const content = '---\nalwaysApply: true\nglobs: "**/*.ts"\n---\n# Rule';
+    const issues = conflictingFrontmatter(content, 'rule.mdc');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.ruleId).toBe('conflicting-frontmatter');
+  });
+
+  it('does not flag alwaysApply:false with globs', () => {
+    const content = '---\nalwaysApply: false\nglobs: "**/*.ts"\n---\n# Rule';
+    const issues = conflictingFrontmatter(content, 'rule.mdc');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('does not flag alwaysApply:true without globs', () => {
+    const content = '---\nalwaysApply: true\n---\n# Rule';
+    const issues = conflictingFrontmatter(content, 'rule.mdc');
+    expect(issues).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// missing-file-glob
+// ---------------------------------------------------------------------------
+describe('missing-file-glob', () => {
+  it('does not flag non-.mdc files', () => {
+    const issues = missingFileGlob('# Rule\nContent.', 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('does not flag alwaysApply:true (glob not needed)', () => {
+    const content = '---\nalwaysApply: true\n---\n# Rule';
+    const issues = missingFileGlob(content, 'rule.mdc');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('does not flag when globs are set', () => {
+    const content = '---\nalwaysApply: false\nglobs: "**/*.ts"\n---\n# Rule';
+    const issues = missingFileGlob(content, 'rule.mdc');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('flags alwaysApply:false with no globs and no description (warning)', () => {
+    const content = '---\nalwaysApply: false\n---\n# Rule';
+    const issues = missingFileGlob(content, 'rule.mdc');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.severity).toBe('warning');
+  });
+
+  it('flags as suggestion when description is present but globs missing', () => {
+    const content = '---\nalwaysApply: false\ndescription: TypeScript rules\n---\n# Rule';
+    const issues = missingFileGlob(content, 'rule.mdc');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.severity).toBe('suggestion');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// heading-depth-skip
+// ---------------------------------------------------------------------------
+describe('heading-depth-skip', () => {
+  it('does not flag sequential heading levels', () => {
+    const issues = headingDepthSkip('# H1\n## H2\n### H3', 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('does not flag going back up levels', () => {
+    const issues = headingDepthSkip('### Deep\n# Back to top', 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('flags skipping one level (## → ####)', () => {
+    const issues = headingDepthSkip('## Section\n#### Sub', 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.ruleId).toBe('heading-depth-skip');
+  });
+
+  it('flags skipping multiple levels (# → ####)', () => {
+    const issues = headingDepthSkip('# Top\n#### Deep', 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+  });
+
+  it('does not flag the first heading regardless of level', () => {
+    const issues = headingDepthSkip('#### Orphan heading\nContent.', 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// negation-heavy
+// ---------------------------------------------------------------------------
+describe('negation-heavy', () => {
+  it('does not flag sections with mostly positive instructions', () => {
+    const content = '## Rules\n- Always write tests\n- Use TypeScript\n- Follow naming conventions\n- Add JSDoc comments\n- Keep functions small';
+    const issues = negationHeavy(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('flags sections with >60% negation bullets', () => {
+    const content = [
+      '## Rules',
+      "- Don't use any",
+      '- Never skip tests',
+      '- Avoid long functions',
+      '- Not allowed to use var',
+      '- Do not use console.log',
+      '- Use TypeScript',
+    ].join('\n');
+    const issues = negationHeavy(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.ruleId).toBe('negation-heavy');
+  });
+
+  it('does not flag sections with fewer than 4 bullets', () => {
+    const content = "## Rules\n- Don't use any\n- Never skip tests\n- Avoid var";
+    const issues = negationHeavy(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// todo-in-instructions
+// ---------------------------------------------------------------------------
+describe('todo-in-instructions', () => {
+  it('does not flag clean instruction files', () => {
+    const issues = todoInInstructions('# Rules\nAlways write tests.\nUse TypeScript.', 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('flags TODO marker', () => {
+    const issues = todoInInstructions('# Rules\n- TODO: add tool constraints here', 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.ruleId).toBe('todo-in-instructions');
+    expect(issues[0]!.severity).toBe('critical');
+  });
+
+  it('flags FIXME marker', () => {
+    const issues = todoInInstructions('# Rules\n- FIXME: clarify this rule', 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+  });
+
+  it('flags PLACEHOLDER marker', () => {
+    const issues = todoInInstructions('# Rules\n- Use PLACEHOLDER tool for file ops', 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+  });
+
+  it('flags TBD marker', () => {
+    const issues = todoInInstructions('# Rules\n- Model to use: TBD', 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+  });
+
+  it('records the correct line number', () => {
+    const content = '# Rules\nAlways write tests.\n- TODO: add more rules';
+    const issues = todoInInstructions(content, 'CLAUDE.md');
+    expect(issues[0]!.line).toBe(3);
+  });
+
+  it('flags multiple markers in the same file', () => {
+    const content = '# Rules\n- TODO: rule 1\n- FIXME: rule 2\n- Normal rule';
+    const issues = todoInInstructions(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // runStructuralAnalysis — config.rules filtering
 // ---------------------------------------------------------------------------
 describe('runStructuralAnalysis config filtering', () => {
@@ -384,6 +664,8 @@ describe('runStructuralAnalysis config filtering', () => {
       rules: {
         'missing-frontmatter': 'off' as const,
         'missing-always-apply': 'off' as const,
+        'missing-description': 'off' as const,
+        'missing-file-glob': 'off' as const,
         'empty-section': 'off' as const,
       },
     };
