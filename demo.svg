@@ -1,0 +1,204 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 500" width="760" height="500">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&amp;display=swap');
+
+      * { font-family: 'JetBrains Mono', 'Courier New', Courier, monospace; }
+
+      /* ── Cursor blink ── */
+      .cursor {
+        fill: #e6edf3;
+        animation: blink 1s step-end infinite;
+      }
+      @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+      /* ── Typing animation for command 1 ── */
+      .cmd1 {
+        fill: #e6edf3;
+        font-size: 13.5px;
+        animation: type1 1.2s steps(50,end) 0.5s both;
+      }
+      @keyframes type1 {
+        from { clip-path: inset(0 100% 0 0); }
+        to   { clip-path: inset(0 0%   0 0); }
+      }
+      .cur1 { animation: cur-hide 0s linear 1.8s forwards; }
+      @keyframes cur-hide { to { opacity: 0; } }
+
+      /* ── Typing animation for command 2 ── */
+      .cmd2 {
+        fill: #e6edf3;
+        font-size: 13.5px;
+        animation: type2 0.9s steps(32,end) 7.8s both;
+        opacity: 0;
+      }
+      @keyframes type2 {
+        from { clip-path: inset(0 100% 0 0); opacity: 1; }
+        to   { clip-path: inset(0 0%   0 0); opacity: 1; }
+      }
+      .prompt2 { animation: show 0s 7.8s forwards; opacity: 0; }
+      .cur2    { animation: cur-hide 0s linear 8.8s forwards; }
+      @keyframes show { to { opacity: 1; } }
+
+      /* ── Generic fade-in ── */
+      @keyframes fi { to { opacity: 1; } }
+      .fi { animation-name: fi; animation-fill-mode: forwards; animation-timing-function: linear; opacity: 0; }
+
+      .a00 { animation-duration:.12s; animation-delay:1.9s;  }
+      .a01 { animation-duration:.12s; animation-delay:2.1s;  }
+      .a02 { animation-duration:.12s; animation-delay:2.35s; }
+      .a03 { animation-duration:.12s; animation-delay:2.55s; }
+      .a04 { animation-duration:.12s; animation-delay:2.75s; }
+      .a05 { animation-duration:.12s; animation-delay:2.9s;  }
+      .a06 { animation-duration:.12s; animation-delay:3.05s; }
+      .a07 { animation-duration:.12s; animation-delay:3.2s;  }
+      .a08 { animation-duration:.12s; animation-delay:3.35s; }
+      .a09 { animation-duration:.12s; animation-delay:3.5s;  }
+      .a10 { animation-duration:.12s; animation-delay:3.65s; }
+      .a11 { animation-duration:.12s; animation-delay:3.8s;  }
+      .a12 { animation-duration:.12s; animation-delay:3.95s; }
+      .a13 { animation-duration:.12s; animation-delay:4.1s;  }
+      .a14 { animation-duration:.12s; animation-delay:4.25s; }
+      .a15 { animation-duration:.12s; animation-delay:4.4s;  }
+      .a16 { animation-duration:.12s; animation-delay:4.55s; }
+      .a17 { animation-duration:.12s; animation-delay:4.7s;  }
+      .a18 { animation-duration:.12s; animation-delay:4.85s; }
+      .a19 { animation-duration:.12s; animation-delay:5.0s;  }
+      .a20 { animation-duration:.12s; animation-delay:5.15s; }
+      .a21 { animation-duration:.12s; animation-delay:5.3s;  }
+      .a22 { animation-duration:.12s; animation-delay:5.45s; }
+      .a23 { animation-duration:.12s; animation-delay:5.6s;  }
+      .a24 { animation-duration:.20s; animation-delay:5.75s; }
+
+      /* fix output */
+      .b01 { animation-duration:.15s; animation-delay:8.9s; }
+      .b02 { animation-duration:.15s; animation-delay:9.1s; }
+      .b03 { animation-duration:.15s; animation-delay:9.3s; }
+      .b04 { animation-duration:.15s; animation-delay:9.5s; }
+      .b05 { animation-duration:.25s; animation-delay:9.7s; }
+    </style>
+  </defs>
+
+  <!-- ── Window chrome ─────────────────────────────────────── -->
+  <rect width="760" height="500" rx="12" fill="#0d1117"/>
+  <!-- title bar -->
+  <rect width="760" height="38" rx="12" fill="#161b22"/>
+  <rect y="28" width="760" height="10" fill="#161b22"/>
+  <!-- traffic lights -->
+  <circle cx="22" cy="19" r="6.5" fill="#ff5f57"/>
+  <circle cx="44" cy="19" r="6.5" fill="#ffbd2e"/>
+  <circle cx="66" cy="19" r="6.5" fill="#28c941"/>
+  <!-- title -->
+  <text x="380" y="24" text-anchor="middle" font-size="12" fill="#6e7681" font-family="'JetBrains Mono','Courier New',monospace">agent-doctor 🩺</text>
+
+  <!-- ══════════════════════════════════════════════════════════
+       COMMAND 1: full analysis
+  ══════════════════════════════════════════════════════════ -->
+  <!-- prompt -->
+  <text x="18" y="65" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace">
+    <tspan fill="#3fb950">~/project</tspan><tspan fill="#6e7681"> $ </tspan>
+  </text>
+  <!-- typed command -->
+  <g transform="translate(97,65)">
+    <text class="cmd1">ANTHROPIC_API_KEY=sk-ant-… npx agent-doctor CLAUDE.md</text>
+  </g>
+  <!-- cursor while typing -->
+  <rect x="97" y="52" width="8.5" height="16" fill="#e6edf3" class="cursor cur1"/>
+
+  <!-- ── Header line ── -->
+  <text x="18" y="88" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a00">
+    <tspan fill="#6e7681">agent-doctor </tspan><tspan fill="#e6edf3">🩺  </tspan><tspan fill="#6e7681">Analysing </tspan><tspan fill="#79c0ff">CLAUDE.md</tspan><tspan fill="#6e7681">…</tspan>
+  </text>
+
+  <!-- ── Issue 1: CRITICAL todo ── -->
+  <text x="18" y="112" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a01">
+    <tspan fill="#ff7b72" font-weight="bold">❌  CRITICAL</tspan><tspan fill="#e6edf3">  Incomplete instruction marker </tspan><tspan fill="#e3b341">"TODO"</tspan><tspan fill="#e6edf3"> found</tspan>
+  </text>
+  <text x="18" y="128" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a02">
+    <tspan fill="#6e7681">    Line 14: </tspan><tspan fill="#e3b341">"TODO: add tool constraints here"</tspan>
+  </text>
+  <text x="18" y="144" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a03">
+    <tspan fill="#6e7681">    Agent will follow this literally — replace before deploying.</tspan>
+  </text>
+  <text x="18" y="160" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a04">
+    <tspan fill="#6e7681">    → </tspan><tspan fill="#56d364">Replace the placeholder with the actual instruction.</tspan>
+  </text>
+
+  <!-- ── Issue 2: CRITICAL unclosed ── -->
+  <text x="18" y="182" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a05">
+    <tspan fill="#ff7b72" font-weight="bold">❌  CRITICAL</tspan><tspan fill="#e6edf3">  Unclosed code fence (</tspan><tspan fill="#e3b341">```</tspan><tspan fill="#e6edf3">) — everything after line 22 is code</tspan>
+  </text>
+  <text x="18" y="198" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a06">
+    <tspan fill="#6e7681">    → </tspan><tspan fill="#56d364">Add a closing ``` fence to end the code block.</tspan>
+  </text>
+
+  <!-- ── Issue 3: WARNING duplicate heading ── -->
+  <text x="18" y="220" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a07">
+    <tspan fill="#e3b341" font-weight="bold">⚠   WARNING</tspan><tspan fill="#e6edf3">   Heading </tspan><tspan fill="#79c0ff">"Rules"</tspan><tspan fill="#e6edf3"> appears more than once (lines 8 and 34)</tspan>
+  </text>
+  <text x="18" y="236" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a08">
+    <tspan fill="#6e7681">    → </tspan><tspan fill="#56d364">Rename or merge — agents can't determine which copy takes precedence.</tspan>
+  </text>
+
+  <!-- ── Issue 4: WARNING decision-loop ── -->
+  <text x="18" y="258" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a09">
+    <tspan fill="#e3b341" font-weight="bold">⚠   WARNING</tspan><tspan fill="#e6edf3">   Rule 8 × Rule 12 — </tspan><tspan fill="#ff7b72">Decision loop detected</tspan>
+  </text>
+  <text x="18" y="274" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a10">
+    <tspan fill="#6e7681">    Rule 8:  </tspan><tspan fill="#e6edf3">"Always ask before making file changes"</tspan>
+  </text>
+  <text x="18" y="290" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a11">
+    <tspan fill="#6e7681">    Rule 12: </tspan><tspan fill="#e6edf3">"Complete tasks autonomously without interruption"</tspan>
+  </text>
+  <text x="18" y="306" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a12">
+    <tspan fill="#6e7681">    → </tspan><tspan fill="#56d364">Add scope: "Ask only before destructive operations."</tspan>
+  </text>
+
+  <!-- ── Issue 5: SUGGEST negation-heavy ── -->
+  <text x="18" y="328" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a13">
+    <tspan fill="#79c0ff" font-weight="bold">💡  SUGGEST</tspan><tspan fill="#e6edf3">   Section </tspan><tspan fill="#79c0ff">"Output Format"</tspan><tspan fill="#e6edf3"> has &gt;60% negation-based instructions</tspan>
+  </text>
+  <text x="18" y="344" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a14">
+    <tspan fill="#6e7681">    → </tspan><tspan fill="#56d364">Rewrite as positive: "Never write long responses" → "Keep under 100 words"</tspan>
+  </text>
+
+  <!-- ── Divider ── -->
+  <text x="18" y="366" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" fill="#30363d" class="fi a15">────────────────────────────────────────────────────────────</text>
+
+  <!-- ── Score block ── -->
+  <text x="18" y="384" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a16">
+    <tspan fill="#e6edf3" font-weight="bold">Health Score  </tspan><tspan fill="#ff7b72" font-weight="bold">48 / 100</tspan><tspan fill="#e6edf3" font-weight="bold">  (D)</tspan>
+  </text>
+  <text x="18" y="400" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a17">
+    <tspan fill="#6e7681">Issues        </tspan><tspan fill="#ff7b72">2 critical</tspan><tspan fill="#6e7681"> · </tspan><tspan fill="#e3b341">2 warnings</tspan><tspan fill="#6e7681"> · </tspan><tspan fill="#79c0ff">1 suggestion</tspan>
+  </text>
+  <text x="18" y="416" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a18">
+    <tspan fill="#6e7681">Files         </tspan><tspan fill="#e6edf3">CLAUDE.md</tspan>
+  </text>
+  <text x="18" y="432" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a19">
+    <tspan fill="#6e7681">Model         </tspan><tspan fill="#d2a8ff">claude-sonnet-4-6</tspan>
+  </text>
+  <text x="18" y="448" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" fill="#30363d" class="fi a20">────────────────────────────────────────────────────────────</text>
+
+  <!-- ══════════════════════════════════════════════════════════
+       COMMAND 2: --fix
+  ══════════════════════════════════════════════════════════ -->
+
+  <!-- prompt 2 (appears after score) -->
+  <g class="fi a24">
+    <text x="18" y="468" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace">
+      <tspan fill="#3fb950">~/project</tspan><tspan fill="#6e7681"> $ </tspan>
+    </text>
+  </g>
+
+  <!-- typed command 2 -->
+  <g transform="translate(97,468)" class="prompt2">
+    <text class="cmd2">npx agent-doctor CLAUDE.md --fix</text>
+  </g>
+  <rect x="97" y="455" width="8.5" height="16" fill="#e6edf3" class="cursor cur2 prompt2"/>
+
+  <!-- fix output -->
+  <text x="18" y="489" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi b01">
+    <tspan fill="#56d364" font-weight="bold">✅  Fixed: </tspan><tspan fill="#e6edf3">todo-in-instructions, unclosed-code-block</tspan><tspan fill="#6e7681">  in CLAUDE.md</tspan>
+  </text>
+</svg>

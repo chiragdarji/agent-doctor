@@ -9,6 +9,10 @@
 ![Tests](https://img.shields.io/badge/tests-233%20passing-brightgreen)
 ![Rules](https://img.shields.io/badge/rules-13%20structural%20%2B%208%20semantic-blue)
 
+<br/>
+
+![agent-doctor demo](./demo.svg)
+
 ---
 
 ## The Problem
