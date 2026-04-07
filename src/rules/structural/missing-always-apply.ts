@@ -1,5 +1,19 @@
-import matter from 'gray-matter';
+import { load as yamlLoad } from 'js-yaml';
 import type { Issue, StructuralRule } from '../../types.js';
+
+/** Extracts YAML frontmatter from raw content without using eval(). */
+function extractFrontmatter(content: string): Record<string, unknown> {
+  const match = /^---\r?\n([\s\S]*?)\r?\n---/.exec(content);
+  if (!match || match[1] === undefined) return {};
+  try {
+    const parsed = yamlLoad(match[1]);
+    return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
 
 /**
  * Checks that .mdc files have `alwaysApply: true` in their frontmatter.
@@ -8,13 +22,7 @@ import type { Issue, StructuralRule } from '../../types.js';
 export const missingAlwaysApply: StructuralRule = (content: string, filePath: string): Issue[] => {
   if (!filePath.endsWith('.mdc')) return [];
 
-  let frontmatter: Record<string, unknown> = {};
-  try {
-    const { data } = matter(content);
-    frontmatter = data as Record<string, unknown>;
-  } catch {
-    return [];
-  }
+  const frontmatter = extractFrontmatter(content);
 
   if (frontmatter['alwaysApply'] === true) return [];
 
