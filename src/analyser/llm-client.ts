@@ -48,6 +48,34 @@ export function resolveProvider(config: Config): LLMProvider {
 }
 
 // ---------------------------------------------------------------------------
+// OpenAI-compatible adapter (Ollama, LM Studio, etc.)
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates an LLMClient targeting any OpenAI-compatible endpoint.
+ * Works with Ollama, LM Studio, vLLM, and other local providers.
+ *
+ * @param baseURL - e.g. "http://localhost:11434/v1"
+ * @param apiKey  - defaults to "ollama" (Ollama ignores it but SDK requires it)
+ */
+export function createOpenAICompatibleClient(baseURL: string, apiKey = 'ollama'): LLMClient {
+  const sdk = new OpenAI({ apiKey, baseURL });
+  return {
+    async complete({ model, system, messages, maxTokens }) {
+      const response = await sdk.chat.completions.create({
+        model,
+        max_tokens: maxTokens,
+        messages: [
+          { role: 'system', content: system },
+          ...messages.map((m) => ({ role: m.role, content: m.content })),
+        ],
+      });
+      return { text: response.choices[0]?.message.content ?? '' };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Anthropic adapter
 // ---------------------------------------------------------------------------
 
@@ -101,10 +129,21 @@ export function createOpenAIClient(apiKey: string): LLMClient {
 
 /**
  * Creates the appropriate LLMClient for the given config.
- * Returns null if the required API key is not set.
+ * Returns null if the required API key / baseURL is not available.
+ *
+ * Provider resolution order:
+ *  1. config.provider explicit override
+ *  2. Model name prefix inference (gpt-* / o1-* / o3-* / o4-* → openai)
+ *  3. Default: anthropic
  */
 export function createClientFromConfig(config: Config): LLMClient | null {
   const provider = resolveProvider(config);
+
+  if (provider === 'openai-compatible') {
+    if (!config.baseURL) return null;
+    const key = process.env['OPENAI_API_KEY'] ?? 'ollama';
+    return createOpenAICompatibleClient(config.baseURL, key);
+  }
 
   if (provider === 'openai') {
     const key = process.env['OPENAI_API_KEY'];

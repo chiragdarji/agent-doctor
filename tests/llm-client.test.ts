@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { createAnthropicClient, createOpenAIClient } from '../src/analyser/llm-client.js';
+import { createAnthropicClient, createOpenAIClient, createOpenAICompatibleClient } from '../src/analyser/llm-client.js';
 import { inferProvider, resolveProvider, createClientFromConfig } from '../src/analyser/llm-client.js';
 import { DEFAULT_CONFIG } from '../src/types.js';
 
@@ -48,6 +48,17 @@ describe('resolveProvider', () => {
   it('uses config.provider when explicitly set to anthropic', () => {
     expect(resolveProvider({ ...DEFAULT_CONFIG, model: 'gpt-4o', provider: 'anthropic' }))
       .toBe('anthropic');
+  });
+
+  it('uses config.provider when explicitly set to openai-compatible', () => {
+    expect(
+      resolveProvider({
+        ...DEFAULT_CONFIG,
+        model: 'llama3.1',
+        provider: 'openai-compatible',
+        baseURL: 'http://localhost:11434/v1',
+      }),
+    ).toBe('openai-compatible');
   });
 
   it('infers from model when provider is not set', () => {
@@ -109,6 +120,27 @@ describe('createClientFromConfig', () => {
     });
     expect(client).not.toBeNull();
   });
+
+  it('returns an LLMClient for openai-compatible when baseURL is set', () => {
+    const client = createClientFromConfig({
+      ...DEFAULT_CONFIG,
+      model: 'llama3.1',
+      provider: 'openai-compatible',
+      baseURL: 'http://localhost:11434/v1',
+    });
+    expect(client).not.toBeNull();
+    expect(typeof client!.complete).toBe('function');
+  });
+
+  it('returns null for openai-compatible when baseURL is missing', () => {
+    const client = createClientFromConfig({
+      ...DEFAULT_CONFIG,
+      model: 'llama3.1',
+      provider: 'openai-compatible',
+      // no baseURL
+    });
+    expect(client).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -126,6 +158,21 @@ describe('LLMClient adapter shape', () => {
 
   it('createOpenAIClient returns an LLMClient with a complete function', () => {
     const client = createOpenAIClient('test-key');
+    expect(typeof client.complete).toBe('function');
+  });
+
+  it('createOpenAICompatibleClient returns an LLMClient with a complete function', () => {
+    const client = createOpenAICompatibleClient('http://localhost:11434/v1');
+    expect(typeof client.complete).toBe('function');
+  });
+
+  it('createOpenAICompatibleClient uses "ollama" as default apiKey', () => {
+    // Should not throw even without an explicit key
+    expect(() => createOpenAICompatibleClient('http://localhost:11434/v1')).not.toThrow();
+  });
+
+  it('createOpenAICompatibleClient accepts an explicit apiKey', () => {
+    const client = createOpenAICompatibleClient('http://localhost:11434/v1', 'custom-key');
     expect(typeof client.complete).toBe('function');
   });
 });

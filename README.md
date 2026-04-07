@@ -4,9 +4,9 @@
 > Finds the instructions that will silently break your agent — before your agent runs.
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
-![npm](https://img.shields.io/badge/npm-0.2.2-black)
+![npm](https://img.shields.io/badge/npm-0.3.0-black)
 ![MCP](https://img.shields.io/badge/MCP-server-purple)
-![Tests](https://img.shields.io/badge/tests-213%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-233%20passing-brightgreen)
 ![Rules](https://img.shields.io/badge/rules-13%20structural%20%2B%208%20semantic-blue)
 
 ---
@@ -46,6 +46,15 @@ ANTHROPIC_API_KEY=sk-ant-... npx @chiragdarji/agent-doctor CLAUDE.md
 
 # Full analysis with OpenAI
 OPENAI_API_KEY=sk-... npx @chiragdarji/agent-doctor CLAUDE.md --model gpt-4o
+
+# Full analysis with Ollama (no cloud API key)
+npx @chiragdarji/agent-doctor CLAUDE.md  # set provider/baseURL in .agentdoctor.json
+
+# Auto-fix structural issues in-place
+npx @chiragdarji/agent-doctor CLAUDE.md --fix
+
+# Preview fixes without writing
+npx @chiragdarji/agent-doctor CLAUDE.md --fix --dry-run
 
 # Analyse all instruction files in the project
 npx @chiragdarji/agent-doctor --all
@@ -228,6 +237,18 @@ Returns a built-in fix suggestion + LLM-generated before/after rewrite for a spe
 }
 ```
 
+**Using Ollama or any local LLM (no cloud API key needed):**
+```json
+{
+  "provider": "openai-compatible",
+  "baseURL": "http://localhost:11434/v1",
+  "model": "llama3.1",
+  "layers": ["structural", "semantic"]
+}
+```
+
+Requires Ollama running locally: `ollama pull llama3.1`. See `examples/ollama-config.json` for a ready-to-use config.
+
 **Provider selection (priority order):**
 1. `provider` field in config — explicit override
 2. Model name prefix: `gpt-*`, `o1-*`, `o3-*`, `o4-*` → OpenAI; else → Anthropic
@@ -249,6 +270,8 @@ Options:
   --model <id>            Override LLM model (e.g. gpt-4o, claude-opus-4-5)
   --fail-on <severity>    Exit code 1 if issues at this level (default: critical)
   --format <format>       Output format: text | json (default: text)
+  --fix                   Auto-fix structural issues in-place
+  --dry-run               Preview --fix changes without writing to disk
   --mcp                   Start MCP server mode
   -V, --version           Show version number
   -h, --help              Show help
@@ -432,11 +455,97 @@ All analysis runs locally. Nothing is stored or cached.
 - [x] MCP server — `analyse_agent_file` + `suggest_fix` tools with API key injection
 - [x] Programmatic API (`analyse`, `analyseAll`, `discoverFiles`)
 - [x] CI/CD mode (exit codes 0/1/2)
-- [ ] `--fix` auto-apply suggestions
+- [x] `--fix` — auto-fix structural issues (`todo-in-instructions`, `unclosed-code-block`, `empty-section`)
+- [x] `--dry-run` — preview fixes without writing
+- [x] Ollama / local LLM support via `provider: "openai-compatible"` + `baseURL`
+- [x] Cursor semantic skill (`skills/cursor-semantic-analysis/SKILL.md`)
 - [ ] VS Code extension (inline diagnostics)
 - [ ] Cross-file conflict detection (CLAUDE.md vs AGENTS.md)
 - [ ] Rule packs: `cursor-pack`, `claude-code-pack`, `langgraph-pack`
 - [ ] Watch mode (re-analyse on save)
+
+---
+
+## Auto-Fix (`--fix`)
+
+`agent-doctor` can repair common structural issues automatically:
+
+```bash
+# Fix issues in-place
+npx @chiragdarji/agent-doctor CLAUDE.md --fix
+
+# Preview changes before writing
+npx @chiragdarji/agent-doctor CLAUDE.md --fix --dry-run
+```
+
+| Rule | Fix action |
+|------|-----------|
+| `todo-in-instructions` | Replaces TODO line with `<!-- TODO removed by agent-doctor — replace with actual instruction -->` |
+| `unclosed-code-block` | Appends closing ` ``` ` fence at end of file |
+| `empty-section` | Inserts `_No content yet — add instructions here._` after the heading |
+| `legacy-format` | Skipped — prints rename instruction; file rename must be manual |
+
+---
+
+## Cursor Integration
+
+`agent-doctor` works inside Cursor as an MCP server. For semantic analysis without a separate API key, use the included skill that lets Cursor's own LLM apply agent-doctor's semantic rules.
+
+### Setup (Cursor MCP)
+
+Copy `examples/cursor-mcp.json` to `.cursor/mcp.json` in your project:
+
+```json
+{
+  "mcpServers": {
+    "agent-doctor": {
+      "command": "npx",
+      "args": ["@chiragdarji/agent-doctor", "--mcp"],
+      "env": {}
+    }
+  }
+}
+```
+
+### Cursor Semantic Analysis Skill
+
+When you don't have a separate Anthropic/OpenAI key, use the skill at `skills/cursor-semantic-analysis/SKILL.md` — Cursor's built-in LLM performs the semantic analysis guided by agent-doctor's 8 semantic rules.
+
+```
+1. Use agent-doctor MCP: structural analysis on CLAUDE.md
+2. Read CLAUDE.md fully
+3. Apply agent-doctor semantic rules (from skill)
+4. Output findings with health score
+```
+
+---
+
+## Ollama / Local LLM Support
+
+Run full semantic analysis with no cloud API key using Ollama or any OpenAI-compatible endpoint:
+
+```bash
+# 1. Start Ollama and pull a model
+ollama pull llama3.1
+
+# 2. Copy the example config
+cp examples/ollama-config.json .agentdoctor.json
+
+# 3. Run analysis
+npx @chiragdarji/agent-doctor CLAUDE.md
+```
+
+`.agentdoctor.json`:
+```json
+{
+  "provider": "openai-compatible",
+  "baseURL": "http://localhost:11434/v1",
+  "model": "llama3.1",
+  "layers": ["structural", "semantic"]
+}
+```
+
+Works with any OpenAI-compatible server: Ollama, LM Studio, vLLM, llama.cpp.
 
 ---
 

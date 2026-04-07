@@ -1,6 +1,6 @@
 {
   "name": "@chiragdarji/agent-doctor",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Semantic health check for AI agent instruction files",
   "keywords": [
     "claude",
@@ -27,7 +27,9 @@
     "agent-doctor": "dist/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "examples",
+    "skills"
   ],
   "scripts": {
     "dev": "tsx watch src/cli.ts",

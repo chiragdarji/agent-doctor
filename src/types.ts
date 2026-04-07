@@ -80,12 +80,18 @@ export interface Section {
   tokenCount: number;
 }
 
-export type LLMProvider = 'anthropic' | 'openai';
+export type LLMProvider = 'anthropic' | 'openai' | 'openai-compatible';
 
 export interface Config {
   model: string;
   /** LLM provider. If omitted, inferred from the model name. */
   provider?: LLMProvider;
+  /**
+   * Base URL for OpenAI-compatible endpoints (e.g. Ollama, LM Studio).
+   * Required when provider is "openai-compatible".
+   * Example: "http://localhost:11434/v1"
+   */
+  baseURL?: string;
   layers: AnalysisLayer[];
   rules: Partial<Record<RuleId, Severity | 'off'>>;
   tokenBudgetWarning: number;

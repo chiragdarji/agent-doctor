@@ -1,0 +1,12 @@
+{
+  "_comment": "Use this config to run agent-doctor semantic analysis against a local Ollama instance",
+  "_comment2": "Requires Ollama running: https://ollama.ai — then: ollama pull llama3.1",
+  "model": "llama3.1",
+  "provider": "openai-compatible",
+  "baseURL": "http://localhost:11434/v1",
+  "layers": ["structural", "semantic"],
+  "rules": {},
+  "tokenBudgetWarning": 500,
+  "ignore": [],
+  "failOn": "critical"
+}

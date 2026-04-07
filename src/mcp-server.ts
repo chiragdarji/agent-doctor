@@ -33,6 +33,7 @@ import { analyseSemantics } from './analyser/semantic.js';
 import {
   createAnthropicClient,
   createOpenAIClient,
+  createOpenAICompatibleClient,
   inferProvider,
 } from './analyser/llm-client.js';
 import { loadConfig } from './config.js';
@@ -40,7 +41,7 @@ import { parseFile } from './parser/index.js';
 import { runStructuralAnalysis } from './analyser/structural.js';
 import { formatResultJson } from './output/formatter.js';
 import type { LLMClient } from './analyser/llm-client.js';
-import type { AnalysisResult, RuleId, Severity } from './types.js';
+import type { AnalysisResult, Config, RuleId, Severity } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -48,18 +49,27 @@ import type { AnalysisResult, RuleId, Severity } from './types.js';
 
 /**
  * Resolves an LLMClient from explicit key params, falling back to env vars.
- * Returns null if no API key is available for the inferred provider.
+ * Handles anthropic, openai, and openai-compatible (Ollama / local LLMs).
+ * Returns null if no API key / baseURL is available.
  */
 function resolveClient(
-  model: string,
+  config: Config,
   anthropicApiKey?: string,
   openaiApiKey?: string,
 ): LLMClient | null {
-  const provider = inferProvider(model);
+  const provider = config.provider ?? inferProvider(config.model);
+
+  if (provider === 'openai-compatible') {
+    if (!config.baseURL) return null;
+    const key = openaiApiKey ?? process.env['OPENAI_API_KEY'] ?? 'ollama';
+    return createOpenAICompatibleClient(config.baseURL, key);
+  }
+
   if (provider === 'openai') {
     const key = openaiApiKey ?? process.env['OPENAI_API_KEY'];
     return key ? createOpenAIClient(key) : null;
   }
+
   const key = anthropicApiKey ?? process.env['ANTHROPIC_API_KEY'];
   return key ? createAnthropicClient(key) : null;
 }
@@ -212,13 +222,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       // Resolve LLM client from tool inputs or env
-      const client = config.layers.includes('semantic')
-        ? resolveClient(config.model, strArg(args, 'anthropicApiKey'), strArg(args, 'openaiApiKey'))
+      const semanticRequested = config.layers.includes('semantic');
+      const client = semanticRequested
+        ? resolveClient(config, strArg(args, 'anthropicApiKey'), strArg(args, 'openaiApiKey'))
         : null;
 
       // Downgrade to structural-only when semantic is requested but no key available
-      if (config.layers.includes('semantic') && client === null) {
+      let semanticSkipped = false;
+      if (semanticRequested && client === null) {
         config.layers = ['structural'];
+        semanticSkipped = true;
       }
 
       let result: AnalysisResult;
@@ -270,6 +283,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         `**Score:** ${result.score}/100  **Grade:** ${result.grade}`,
         `**Layers:** ${result.layers.join(' + ')}`,
         `**Issues:** ${criticals.length} critical · ${warnings.length} warnings · ${suggestions.length} suggestions`,
+        ...(semanticSkipped
+          ? [
+              '',
+              '> ⚠️ **semantic_skipped:** No API key provided — structural analysis only.',
+              '> Pass `anthropicApiKey`, `openaiApiKey`, or set `provider: "openai-compatible"` with `baseURL` for full analysis.',
+            ]
+          : []),
         '',
         ...issueLines,
         '',
@@ -308,7 +328,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       if (model) config.model = model;
 
       const client = resolveClient(
-        config.model,
+        config,
         strArg(args, 'anthropicApiKey'),
         strArg(args, 'openaiApiKey'),
       );

@@ -6,6 +6,7 @@ import { spawn } from 'node:child_process';
 import { analyse, analyseAll } from './analyser/index.js';
 import { loadConfig } from './config.js';
 import { discoverFiles } from './discovery.js';
+import { applyFixes } from './fixer.js';
 import {
   formatResult,
   formatResults,
@@ -33,6 +34,8 @@ program
     '--model <id>',
     'Override LLM model (e.g. gpt-4o uses OPENAI_API_KEY; claude-* uses ANTHROPIC_API_KEY)',
   )
+  .option('--fix', 'Auto-fix structural issues in-place (todo-in-instructions, unclosed-code-block, empty-section)')
+  .option('--dry-run', 'Preview --fix changes without writing to disk')
   .option('--mcp', 'Start MCP server mode (v0.2)')
   .action(async (file: string | undefined, opts: {
     all?: boolean;
@@ -40,6 +43,8 @@ program
     format: string;
     structuralOnly?: boolean;
     model?: string;
+    fix?: boolean;
+    dryRun?: boolean;
     mcp?: boolean;
   }) => {
     if (opts.mcp) {
@@ -120,6 +125,32 @@ program
       process.stdout.write(
         (results.length === 1 ? formatResult(results[0]!) : formatResults(results)) + '\n',
       );
+    }
+
+    // Apply fixes if requested
+    if (opts.fix) {
+      for (const result of results) {
+        try {
+          const fixResult = await applyFixes(result.file, result.issues, { dryRun: opts.dryRun ?? false });
+          if (opts.dryRun && fixResult.preview !== undefined) {
+            process.stdout.write(`\n--- Dry-run preview: ${result.file} ---\n`);
+            process.stdout.write(fixResult.preview);
+            process.stdout.write(`\n--- End preview ---\n`);
+          } else if (fixResult.fixed.length > 0) {
+            process.stdout.write(`✅  Fixed: ${fixResult.fixed.join(', ')} in ${result.file}\n`);
+          }
+          if (fixResult.skipped.length > 0) {
+            process.stdout.write(
+              `⏭   Skipped (no auto-fix): ${fixResult.skipped.join(', ')}\n`,
+            );
+          }
+          if (fixResult.fixed.length === 0 && fixResult.skipped.length === 0) {
+            process.stdout.write(`✅  Nothing to fix in ${result.file}\n`);
+          }
+        } catch (err) {
+          process.stderr.write(`Error applying fixes to ${result.file}: ${String(err)}\n`);
+        }
+      }
     }
 
     // Exit code

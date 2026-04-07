@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "agent-doctor": {
+      "command": "npx",
+      "args": ["@chiragdarji/agent-doctor", "--mcp"],
+      "env": {}
+    }
+  }
+}

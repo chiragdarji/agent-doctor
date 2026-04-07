@@ -1,0 +1,57 @@
+name: Agent Instructions Health Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'CLAUDE.md'
+      - 'AGENTS.md'
+      - '.cursor/rules/**'
+      - 'GEMINI.md'
+      - '.github/copilot-instructions.md'
+      - '.claude/**'
+
+jobs:
+  structural-check:
+    name: Structural Analysis (no API key)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run structural analysis
+        run: |
+          npx @chiragdarji/agent-doctor --all --structural-only --format json \
+            | tee agent-doctor-report.json
+
+      - name: Fail on critical issues
+        run: |
+          npx @chiragdarji/agent-doctor --all --structural-only --fail-on critical
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-doctor-report
+          path: agent-doctor-report.json
+
+  semantic-check:
+    name: Semantic Analysis (needs API key)
+    runs-on: ubuntu-latest
+    if: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run full analysis
+        run: npx @chiragdarji/agent-doctor --all --fail-on critical
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

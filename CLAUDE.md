@@ -19,8 +19,8 @@ Also exposes an MCP server for use inside Claude Code and Cursor.
 - **Runtime**: Node.js 20+
 - **Language**: TypeScript (strict mode)
 - **CLI framework**: Commander.js
-- **Testing**: Vitest (213 tests)
-- **LLM**: Anthropic SDK (`@anthropic-ai/sdk`) or OpenAI SDK (`openai`) — provider auto-detected from model name
+- **Testing**: Vitest (233 tests)
+- **LLM**: Anthropic SDK (`@anthropic-ai/sdk`) or OpenAI SDK (`openai`) — provider auto-detected from model name; `openai-compatible` for Ollama/local LLMs
 - **MCP**: `@modelcontextprotocol/sdk`
 - **Package manager**: npm
 - **Build**: tsup (via `tsup.config.ts`)
@@ -49,6 +49,7 @@ agent-doctor/
 ├── src/
 │   ├── cli.ts                  # Commander.js entry — shebang injected by tsup banner
 │   ├── index.ts                # Programmatic API exports
+│   ├── fixer.ts                # --fix: applyFixes() for todo/unclosed/empty-section
 │   ├── mcp-server.ts           # Full MCP server (analyse_agent_file + suggest_fix)
 │   ├── analyser/
 │   │   ├── index.ts            # Orchestrates structural + semantic layers
@@ -89,12 +90,23 @@ agent-doctor/
 │   ├── fixtures/               # Sample files for structural rule tests
 │   ├── structural.test.ts      # 80+ tests across 13 rules
 │   ├── semantic.test.ts        # 20 tests (injected LLMClient)
-│   ├── llm-client.test.ts      # 26 tests (inferProvider, adapters)
+│   ├── llm-client.test.ts      # 31 tests (inferProvider, adapters, openai-compatible)
+│   ├── fixer.test.ts           # 20 tests (applyFixes per rule + combined)
 │   ├── parser.test.ts          # 36 tests
 │   ├── analyser.test.ts        # 14 tests
 │   ├── formatter.test.ts       # 17 tests
 │   ├── config.test.ts          # 7 tests
 │   └── discovery.test.ts       # 13 tests
+├── examples/
+│   ├── cursor-mcp.json         # .cursor/mcp.json setup
+│   ├── claude-settings.json    # .claude/settings.json setup
+│   └── ollama-config.json      # Local LLM config
+├── skills/
+│   └── cursor-semantic-analysis/
+│       └── SKILL.md            # Cursor skill for semantic analysis without extra API key
+├── scripts/
+│   └── release.sh              # Release checklist script
+├── CHANGELOG.md
 ├── CLAUDE.md                   # This file
 ├── README.md
 ├── package.json
@@ -194,9 +206,40 @@ async function analyseSemantics(
 
 **Provider selection (priority order):**
 1. `client` param injected directly (tests + MCP server)
-2. `config.provider` explicit override (`'anthropic'` | `'openai'`)
+2. `config.provider` explicit override (`'anthropic'` | `'openai'` | `'openai-compatible'`)
 3. Inferred from `config.model` prefix (`gpt-*`, `o1-*`, `o3-*`, `o4-*` → OpenAI)
 4. Default: Anthropic
+
+**`openai-compatible` provider:**
+- Requires `config.baseURL` (e.g. `"http://localhost:11434/v1"`)
+- Uses OpenAI SDK with `baseURL` override — works with Ollama, LM Studio, vLLM
+- Falls back to `apiKey: "ollama"` if no `OPENAI_API_KEY` set (Ollama ignores it)
+
+---
+
+## Auto-Fix (`--fix` / `applyFixes`)
+
+```typescript
+export async function applyFixes(
+  filePath: string,
+  issues: Issue[],
+  options?: { dryRun?: boolean },
+): Promise<FixResult>
+
+export interface FixResult {
+  fixed: RuleId[];
+  skipped: RuleId[];
+  preview?: string;  // only present in dry-run mode
+}
+```
+
+| Rule | Fix action |
+|------|-----------|
+| `todo-in-instructions` | Replaces TODO line with HTML comment |
+| `unclosed-code-block` | Appends closing ` ``` ` fence at EOF |
+| `empty-section` | Inserts placeholder after heading (reverse order) |
+| `legacy-format` | Skipped — always manual (destructive file rename) |
+| all others | Skipped — no auto-fix available |
 
 ---
 
@@ -229,6 +272,8 @@ npx @chiragdarji/agent-doctor --all                   # discover all files
 npx @chiragdarji/agent-doctor CLAUDE.md --model gpt-4o
 npx @chiragdarji/agent-doctor CLAUDE.md --fail-on warning
 npx @chiragdarji/agent-doctor CLAUDE.md --format json
+npx @chiragdarji/agent-doctor CLAUDE.md --fix         # auto-fix structural issues
+npx @chiragdarji/agent-doctor CLAUDE.md --fix --dry-run   # preview fixes
 npx @chiragdarji/agent-doctor --mcp                   # start MCP server
 ```
 
@@ -260,6 +305,7 @@ AGENT_DOCTOR_LOG_LEVEL=    # optional: debug | info | warn | error
 
 The provider is inferred from the model name. Only the matching key is required.
 MCP tool inputs can supply keys directly — env vars are the fallback.
+For `openai-compatible` (Ollama, etc.), no API key is required — `OPENAI_API_KEY` falls back to `"ollama"`.
 
 ---
 
