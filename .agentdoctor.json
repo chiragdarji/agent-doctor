@@ -1,0 +1,8 @@
+{
+  "model": "claude-sonnet-4-6",
+  "layers": ["structural", "semantic"],
+  "rules": {},
+  "tokenBudgetWarning": 500,
+  "ignore": [],
+  "failOn": "critical"
+}

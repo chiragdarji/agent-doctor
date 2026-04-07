@@ -1,23 +1,19 @@
 # agent-doctor 🩺
 
-> **Semantic health check for AI agent instruction files.**  
+> **Semantic health check for AI agent instruction files.**
 > Finds the instructions that will silently break your agent — before your agent runs.
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
-![npm](https://img.shields.io/badge/npx-agent--doctor-black)
+![npm](https://img.shields.io/badge/npm-0.2.2-black)
 ![MCP](https://img.shields.io/badge/MCP-server-purple)
-![Status: Alpha](https://img.shields.io/badge/Status-Alpha-orange)
-
----
-
-<!-- DEMO PLACEHOLDER -->
-> 🎬 _Demo coming soon — `npx @chiragdarji/agent-doctor CLAUDE.md` catching a decision loop before it hits production_
+![Tests](https://img.shields.io/badge/tests-213%20passing-brightgreen)
+![Rules](https://img.shields.io/badge/rules-13%20structural%20%2B%208%20semantic-blue)
 
 ---
 
 ## The Problem
 
-Structural linters check if your `CLAUDE.md` is **well-formed**.  
+Structural linters check if your `CLAUDE.md` is **well-formed**.
 `agent-doctor` checks if it will actually **work**.
 
 There's a difference.
@@ -26,12 +22,13 @@ There's a difference.
 # These pass every structural linter. They will break your agent.
 
 - Be helpful and concise                          ← no decision boundary
-- Always ask before making changes                ← conflicts with rule below  
+- Always ask before making changes                ← conflicts with rule below
 - Complete tasks autonomously without interruption ← decision loop on file edits
 - Use the fetch_data tool to retrieve information  ← tool also writes logs (agent won't know)
+- TODO: add more constraints here                  ← agent follows this literally
 ```
 
-No regex catches these. No schema validates them.  
+No regex catches these. No schema validates them.
 They require semantic reasoning — understanding what the agent will *do* with each instruction.
 
 `agent-doctor` uses Claude (or OpenAI) to evaluate your instructions the way your agent will read them.
@@ -41,16 +38,19 @@ They require semantic reasoning — understanding what the agent will *do* with 
 ## Quickstart
 
 ```bash
-# Analyse a single file (uses Claude by default)
+# Structural only — no API key needed
+npx @chiragdarji/agent-doctor CLAUDE.md --structural-only
+
+# Full analysis with Claude
 ANTHROPIC_API_KEY=sk-ant-... npx @chiragdarji/agent-doctor CLAUDE.md
 
-# Use OpenAI instead
+# Full analysis with OpenAI
 OPENAI_API_KEY=sk-... npx @chiragdarji/agent-doctor CLAUDE.md --model gpt-4o
 
-# Analyse all agent instruction files in a project
+# Analyse all instruction files in the project
 npx @chiragdarji/agent-doctor --all
 
-# Run as MCP tool (from Claude Code or Cursor)
+# Run as MCP server (Claude Code / Cursor)
 npx @chiragdarji/agent-doctor --mcp
 ```
 
@@ -59,28 +59,28 @@ npx @chiragdarji/agent-doctor --mcp
 ```
 agent-doctor 🩺  Analysing CLAUDE.md...
 
-❌  CRITICAL  Rule 8 × Rule 12 — Decision loop detected
+❌  CRITICAL  Incomplete instruction marker "TODO" found
+    Line 14: "TODO: add tool constraints here"
+    Agent will follow this literally — replace before deploying.
+    → Replace the placeholder with the actual instruction.
+
+❌  CRITICAL  Unclosed code fence (```) — everything after line 22 is treated as code
+    → Add a closing ``` fence to end the code block.
+
+⚠   WARNING   Heading "Rules" appears more than once (lines 8 and 34)
+    → Rename or merge — agents cannot determine which copy takes precedence.
+
+⚠   WARNING   Rule 8 × Rule 12 — Decision loop detected
     Rule 8:  "Always ask before making file changes"
     Rule 12: "Complete tasks autonomously without interruption"
-    These conflict on any file-editing task. Agent will stall or ignore one.
-    → Add scope: "Ask only before destructive operations (delete, overwrite)."
+    → Add scope: "Ask only before destructive operations."
 
-⚠   WARNING   Rule 4 — No decision boundary
-    "Be concise" gives the agent no signal for when to stop.
-    → Specify: "Respond in under 150 words unless detail is requested."
-
-⚠   WARNING   Tool: fetch_data — Misleading description
-    Description says "fetches user data" but schema shows it also writes audit logs.
-    Agent will not anticipate side effects.
-    → Update description to list all side effects.
-
-💡  SUGGEST   Rule 7 — No fallback defined
-    "If the user asks for X, do Y" — no instruction for when X is ambiguous.
-    → Add: "If intent is unclear, ask one clarifying question before proceeding."
+💡  SUGGEST   Section "Output Format" has >60% negation-based instructions
+    → Rewrite as positive: "Never write long responses" → "Keep responses under 100 words"
 
 ────────────────────────────────────────────
-Health Score  61 / 100  (C)
-Issues        1 critical · 2 warnings · 1 suggestion
+Health Score  48 / 100  (D)
+Issues        2 critical · 2 warnings · 1 suggestion
 Files         CLAUDE.md
 Model         claude-sonnet-4-6
 ────────────────────────────────────────────
@@ -92,25 +92,36 @@ Model         claude-sonnet-4-6
 
 `agent-doctor` runs two layers of analysis:
 
-### Layer 1 — Structural (fast, no API call)
-- Missing frontmatter in `.mdc` files
-- `alwaysApply` not set (Cursor agent mode silently ignores the rule)
-- Empty sections, orphaned headings
-- Legacy `.cursorrules` format that agent mode ignores
-- Token budget per section (flags sections over threshold)
+### Layer 1 — Structural (13 rules, zero API cost)
 
-### Layer 2 — Semantic (Claude-powered)
-| Check | What it catches |
-|-------|-----------------|
-| `decision-loop` | Two rules that conflict on a common task |
-| `vague-boundary` | Instructions with no measurable success condition |
-| `tool-mismatch` | Tool description doesn't match tool schema behaviour |
-| `missing-fallback` | Conditional rules with no else/default branch |
-| `scope-bleed` | Rule intended for one context leaks into all contexts |
-| `contradiction` | Rules that directly oppose each other |
-| `ambiguous-pronoun` | "it", "they", "this" with no clear referent |
-| `over-permissive` | Tool granted with no usage constraint |
-| `cross-file-conflict` | CLAUDE.md and AGENTS.md imply different behaviour |
+| Rule | Severity | What it catches |
+|------|----------|----------------|
+| `missing-frontmatter` | critical | `.mdc` file missing `---` YAML block |
+| `unclosed-code-block` | critical | Odd ` ``` ` fences — rest of file read as code |
+| `todo-in-instructions` | critical | TODO/FIXME/PLACEHOLDER left in — agent follows literally |
+| `missing-always-apply` | warning | `.mdc` where `alwaysApply` is not `true` |
+| `missing-description` | warning | `.mdc` with no `description` — Cursor can't match it contextually |
+| `conflicting-frontmatter` | warning | `alwaysApply: true` + `globs` set — globs silently ignored |
+| `missing-file-glob` | warning | `alwaysApply: false` + no `globs` — rule may never activate |
+| `duplicate-heading` | warning | Same heading twice — agent can't pick which wins |
+| `legacy-format` | warning | `.cursorrules` file ignored by agent mode |
+| `token-budget-exceeded` | warning | Section over configurable token threshold (default 500) |
+| `empty-section` | suggestion | Heading with no content and no children |
+| `heading-depth-skip` | suggestion | `##` → `####` jump — breaks hierarchy agents use for scoping |
+| `negation-heavy` | suggestion | >60% "don't/never/avoid" bullets — rewrite as positive |
+
+### Layer 2 — Semantic (8 rules, LLM-powered)
+
+| Rule | Severity | What it catches |
+|------|----------|----------------|
+| `decision-loop` | critical | Two rules that conflict on a common task |
+| `contradiction` | critical | Rules that directly oppose each other |
+| `vague-boundary` | warning | Instructions with no measurable success condition |
+| `tool-mismatch` | warning | Tool description doesn't match schema behaviour |
+| `missing-fallback` | warning | Conditional with no else/default branch |
+| `scope-bleed` | warning | Rule intended for one context leaks into all contexts |
+| `over-permissive` | warning | Tool granted with no usage constraint |
+| `ambiguous-pronoun` | suggestion | "it", "they", "this" with no clear referent |
 
 ---
 
@@ -130,7 +141,10 @@ Model         claude-sonnet-4-6
 
 ## MCP Integration
 
-`agent-doctor` exposes itself as an MCP server so you can call it from **inside Claude Code or Cursor** during agent setup:
+`agent-doctor` runs as an MCP server so you can call it from **inside Claude Code or Cursor**.
+Pass your API key directly as a tool input — no environment variables needed.
+
+### Setup
 
 ```json
 // .claude/settings.json
@@ -144,175 +158,112 @@ Model         claude-sonnet-4-6
 }
 ```
 
-Then from Claude Code:
+### Tool: `analyse_agent_file`
+
+Runs structural + semantic analysis on any instruction file.
+
+```json
+{
+  "filePath": "CLAUDE.md",
+  "layers": ["structural", "semantic"],
+  "model": "claude-sonnet-4-6",
+  "anthropicApiKey": "sk-ant-...",
+  "openaiApiKey": "sk-..."
+}
 ```
-> /mcp agent-doctor analyse CLAUDE.md
-> /mcp agent-doctor fix --rule decision-loop
+
+| Input | Type | Required | Description |
+|-------|------|----------|-------------|
+| `filePath` | string | ✅ | Path to the instruction file |
+| `layers` | array | — | `["structural","semantic"]` (default: both) |
+| `model` | string | — | e.g. `claude-sonnet-4-6`, `gpt-4o` |
+| `anthropicApiKey` | string | — | Falls back to `ANTHROPIC_API_KEY` env var |
+| `openaiApiKey` | string | — | Falls back to `OPENAI_API_KEY` env var |
+
+> **No API key?** Omit `anthropicApiKey`/`openaiApiKey` and set `layers: ["structural"]` for free analysis.
+
+### Tool: `suggest_fix`
+
+Returns a built-in fix suggestion + LLM-generated before/after rewrite for a specific rule.
+
+```json
+{
+  "filePath": "CLAUDE.md",
+  "issueRuleId": "todo-in-instructions",
+  "anthropicApiKey": "sk-ant-..."
+}
 ```
+
+| Input | Type | Required | Description |
+|-------|------|----------|-------------|
+| `filePath` | string | ✅ | Path to the instruction file |
+| `issueRuleId` | string | ✅ | Rule ID from `analyse_agent_file` output |
+| `anthropicApiKey` / `openaiApiKey` | string | — | Enables LLM-generated rewrite |
 
 ---
 
 ## Configuration
 
 ```json
-// .agentdoctor.json  (Claude — default)
+// .agentdoctor.json
 {
   "model": "claude-sonnet-4-6",
   "layers": ["structural", "semantic"],
   "rules": {
-    "decision-loop": "error",
-    "vague-boundary": "warn",
-    "tool-mismatch": "error",
-    "missing-fallback": "suggest",
-    "cross-file-conflict": "error"
+    "negation-heavy": "off",
+    "heading-depth-skip": "off",
+    "missing-always-apply": "off"
   },
   "tokenBudgetWarning": 500,
-  "ignore": [".claude/agents/legacy-*.md"]
+  "ignore": [".claude/agents/legacy-*.md"],
+  "failOn": "critical"
 }
 ```
 
+**Using OpenAI:**
 ```json
-// .agentdoctor.json  (OpenAI)
 {
   "model": "gpt-4o",
-  "provider": "openai",
-  "layers": ["structural", "semantic"],
-  "rules": {
-    "decision-loop": "error",
-    "vague-boundary": "warn"
-  },
-  "tokenBudgetWarning": 500
+  "provider": "openai"
 }
 ```
 
-Set the corresponding API key:
-- Claude: `export ANTHROPIC_API_KEY=sk-ant-...`
-- OpenAI: `export OPENAI_API_KEY=sk-...`
-
-The provider is inferred automatically from the model name (`gpt-*`, `o1-*`, `o3-*`, `o4-*` → OpenAI; everything else → Anthropic). Use the `provider` field to override.
+**Provider selection (priority order):**
+1. `provider` field in config — explicit override
+2. Model name prefix: `gpt-*`, `o1-*`, `o3-*`, `o4-*` → OpenAI; else → Anthropic
+3. API key present: `ANTHROPIC_API_KEY` → Anthropic, `OPENAI_API_KEY` → OpenAI
 
 ---
 
-## Programmatic API
-
-Install as a dependency:
+## CLI Reference
 
 ```bash
-npm install @chiragdarji/agent-doctor
+agent-doctor [file] [options]
+
+Arguments:
+  file                    Path to instruction file (auto-detects CLAUDE.md if omitted)
+
+Options:
+  --all                   Discover and analyse all instruction files in the project
+  --structural-only       Skip semantic layer — no API key required
+  --model <id>            Override LLM model (e.g. gpt-4o, claude-opus-4-5)
+  --fail-on <severity>    Exit code 1 if issues at this level (default: critical)
+  --format <format>       Output format: text | json (default: text)
+  --mcp                   Start MCP server mode
+  -V, --version           Show version number
+  -h, --help              Show help
 ```
 
-### Basic usage
-
-```typescript
-import { analyse, loadConfig } from '@chiragdarji/agent-doctor';
-
-const config = loadConfig(process.cwd()); // loads .agentdoctor.json or defaults
-const result = await analyse('./CLAUDE.md', config);
-
-console.log(result.score);   // 0–100
-console.log(result.grade);   // 'A' | 'B' | 'C' | 'D' | 'F'
-console.log(result.issues);  // Issue[]
-```
-
-### Analyse multiple files
-
-```typescript
-import { analyseAll, discoverFiles, loadConfig } from '@chiragdarji/agent-doctor';
-
-const config = loadConfig(process.cwd());
-const files = discoverFiles(process.cwd()); // auto-discovers all instruction files
-const results = await analyseAll(files, config);
-
-for (const result of results) {
-  console.log(`${result.file}: ${result.score}/100 (${result.grade})`);
-}
-```
-
-### Use OpenAI for semantic analysis
-
-```typescript
-import { analyse, DEFAULT_CONFIG } from '@chiragdarji/agent-doctor';
-
-// Set process.env.OPENAI_API_KEY before calling
-const result = await analyse('./CLAUDE.md', {
-  ...DEFAULT_CONFIG,
-  model: 'gpt-4o',
-  provider: 'openai',   // optional — inferred from model name if omitted
-});
-```
-
-### Inject a custom LLM client
-
-```typescript
-import { analyse, DEFAULT_CONFIG, createOpenAIClient } from '@chiragdarji/agent-doctor';
-
-const client = createOpenAIClient(process.env.OPENAI_API_KEY!);
-// createAnthropicClient(key) also available
-
-const result = await analyse('./CLAUDE.md', DEFAULT_CONFIG, { llmClient: client });
-```
-
-### Structural-only (no API key needed)
-
-```typescript
-import { analyse, DEFAULT_CONFIG } from '@chiragdarji/agent-doctor';
-
-const result = await analyse('./CLAUDE.md', {
-  ...DEFAULT_CONFIG,
-  layers: ['structural'],
-});
-```
-
-### Custom rule thresholds
-
-```typescript
-import { analyse, loadConfig } from '@chiragdarji/agent-doctor';
-
-const config = {
-  ...loadConfig(process.cwd()),
-  tokenBudgetWarning: 200,        // stricter token limit per section
-  rules: {
-    'empty-section': 'off',       // silence a specific rule
-    'missing-always-apply': 'off',
-  },
-  failOn: 'warning',              // fail CI on warnings, not just criticals
-};
-
-const result = await analyse('./CLAUDE.md', config);
-process.exit(result.issues.some(i => i.severity === config.failOn) ? 1 : 0);
-```
-
-### Result shape
-
-```typescript
-interface AnalysisResult {
-  file: string;           // absolute path to the analysed file
-  score: number;          // 0–100 (100 = no issues)
-  grade: 'A' | 'B' | 'C' | 'D' | 'F';
-  issues: Issue[];
-  tokenCount: number;     // total tokens in the file
-  analysedAt: string;     // ISO timestamp
-  layers: ('structural' | 'semantic')[];
-}
-
-interface Issue {
-  ruleId: RuleId;
-  severity: 'critical' | 'warning' | 'suggestion';
-  message: string;
-  suggestion: string;
-  line?: number;          // line number in source file
-  context?: string;       // offending text snippet
-}
-```
+**Exit codes:**
+| Code | Meaning |
+|------|---------|
+| `0` | No issues at or above `--fail-on` threshold |
+| `1` | Issues found at or above threshold |
+| `2` | File not found / parse error |
 
 ---
 
 ## CI / CD Integration
-
-Exit codes:
-- `0` — no issues at or above `--fail-on` threshold
-- `1` — issues found at or above threshold
-- `2` — file not found or parse error
 
 ### GitHub Actions
 
@@ -330,103 +281,168 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Check agent instruction files
+      - name: Structural check (no API key needed)
         run: npx @chiragdarji/agent-doctor --all --structural-only --fail-on warning
-```
-
-### Fail on warnings (strict mode)
-
-```bash
-npx @chiragdarji/agent-doctor CLAUDE.md --fail-on warning
-```
-
-### Structural-only in CI (no API key needed)
-
-```bash
-npx @chiragdarji/agent-doctor --all --structural-only
+      - name: Semantic check (optional — needs API key)
+        if: env.ANTHROPIC_API_KEY != ''
+        run: npx @chiragdarji/agent-doctor --all --fail-on critical
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
 
 ### JSON output for downstream processing
 
 ```bash
-npx @chiragdarji/agent-doctor CLAUDE.md --format json | jq '.issues[] | select(.severity == "critical")'
+npx @chiragdarji/agent-doctor CLAUDE.md --format json \
+  | jq '.issues[] | select(.severity == "critical")'
+```
+
+---
+
+## Programmatic API
+
+```bash
+npm install @chiragdarji/agent-doctor
+```
+
+### Basic usage
+
+```typescript
+import { analyse, loadConfig } from '@chiragdarji/agent-doctor';
+
+const config = loadConfig(process.cwd());
+const result = await analyse('./CLAUDE.md', config);
+
+console.log(result.score);   // 0–100
+console.log(result.grade);   // 'A' | 'B' | 'C' | 'D' | 'F'
+console.log(result.issues);  // Issue[]
+```
+
+### Structural-only (no API key)
+
+```typescript
+import { analyse, DEFAULT_CONFIG } from '@chiragdarji/agent-doctor';
+
+const result = await analyse('./CLAUDE.md', {
+  ...DEFAULT_CONFIG,
+  layers: ['structural'],
+});
+```
+
+### Inject a custom LLM client
+
+```typescript
+import { analyseSemantics, createAnthropicClient, createOpenAIClient } from '@chiragdarji/agent-doctor';
+
+// Anthropic
+const client = createAnthropicClient(process.env.ANTHROPIC_API_KEY!);
+// OpenAI
+const client = createOpenAIClient(process.env.OPENAI_API_KEY!);
+
+const issues = await analyseSemantics(content, filePath, config, client);
+```
+
+### Silence specific rules
+
+```typescript
+const config = {
+  ...loadConfig(process.cwd()),
+  rules: {
+    'negation-heavy': 'off',
+    'heading-depth-skip': 'off',
+  },
+  failOn: 'warning',
+};
+```
+
+### Result shape
+
+```typescript
+interface AnalysisResult {
+  file: string;
+  score: number;          // 0–100
+  grade: 'A' | 'B' | 'C' | 'D' | 'F';
+  issues: Issue[];
+  tokenCount: number;
+  analysedAt: string;     // ISO timestamp
+  layers: ('structural' | 'semantic')[];
+}
+
+interface Issue {
+  ruleId: RuleId;
+  severity: 'critical' | 'warning' | 'suggestion';
+  message: string;
+  suggestion: string;
+  line?: number;
+  context?: string;
+  relatedLine?: number;
+}
 ```
 
 ---
 
 ## Adding a New Structural Rule
 
-1. Create `src/rules/structural/<rule-id>.ts` exporting a `StructuralRule`:
+1. Create `src/rules/structural/<rule-id>.ts`:
 
 ```typescript
 import type { Issue, StructuralRule } from '../../types.js';
 
 /** Detects ... */
 export const myRule: StructuralRule = (content, filePath) => {
-  // return [] to pass, or Issue[] to flag
-  return [];
+  return []; // return Issue[] to flag, [] to pass
 };
 ```
 
-2. Register it in `src/rules/structural/index.ts`
-3. Add it to the `rules` array in `src/analyser/structural.ts`
-4. Add the `RuleId` to `src/types.ts`
-5. Add fixtures in `tests/fixtures/` and tests in `tests/structural.test.ts`
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full guide.
+2. Export from `src/rules/structural/index.ts`
+3. Add to `rules` array in `src/analyser/structural.ts`
+4. Add `RuleId` to `src/types.ts`
+5. Add tests in `tests/structural.test.ts`
 
 ---
 
 ## How It Works
 
 ```
-Your CLAUDE.md
+Your CLAUDE.md / AGENTS.md / .mdc
       │
-      ├─► Layer 1: Structural parser (regex + AST, zero API cost)
-      │         └─► Frontmatter, token counts, format issues
+      ├─► Layer 1: Structural (13 rules, regex-based, zero API cost)
+      │         ├─► Frontmatter validation (missing, conflicting, incomplete)
+      │         ├─► Content quality (empty sections, duplicate headings, TODOs)
+      │         ├─► Code fence integrity (unclosed blocks)
+      │         └─► Token budget per section
       │
-      └─► Layer 2: Semantic evaluator (Claude or OpenAI)
-                └─► Reads instructions as an agent would
-                └─► Identifies conflicts, ambiguities, missing boundaries
+      └─► Layer 2: Semantic (8 rules, LLM-powered)
+                ├─► Reads instructions as an agent would
+                ├─► Detects conflicts, ambiguities, missing boundaries
                 └─► Returns structured JSON → Zod-validated → formatted output
 ```
 
-The semantic layer sends only your instruction file (never your codebase) to the LLM API.
-All analysis runs locally. Nothing is stored.
-
-**Provider selection:**
-1. Set `ANTHROPIC_API_KEY` → uses Claude (default, any `claude-*` model)
-2. Set `OPENAI_API_KEY` → uses OpenAI (any `gpt-*`, `o1-*`, `o3-*`, `o4-*` model)
-3. Set `model` in config → provider is inferred from the model name
-4. Set `provider` explicitly → overrides inference
+The semantic layer sends **only your instruction file** (never your codebase) to the LLM API.
+All analysis runs locally. Nothing is stored or cached.
 
 ---
 
 ## Roadmap
 
 - [x] CLI — `npx @chiragdarji/agent-doctor <file>`
-- [x] Structural layer (zero API cost)
-- [x] CI/CD mode (exit code 1 on critical)
+- [x] Structural layer — 13 rules, zero API cost
+- [x] Semantic layer — 8 rules, Claude + OpenAI
+- [x] OpenAI support (`gpt-4o`, `o1-*`, `o3-*`, `o4-*`)
+- [x] MCP server — `analyse_agent_file` + `suggest_fix` tools with API key injection
 - [x] Programmatic API (`analyse`, `analyseAll`, `discoverFiles`)
-- [x] Semantic layer (Claude Sonnet) — v0.2
-- [x] OpenAI support (`gpt-4o`, `o1-*`, `o3-*`, `o4-*` models) — v0.2
-- [ ] MCP server mode — v0.3
+- [x] CI/CD mode (exit codes 0/1/2)
 - [ ] `--fix` auto-apply suggestions
 - [ ] VS Code extension (inline diagnostics)
-- [ ] GitHub Action
-- [ ] Rule packs: `cursor-pack`, `claude-code-pack`, `langgraph-pack`
 - [ ] Cross-file conflict detection (CLAUDE.md vs AGENTS.md)
+- [ ] Rule packs: `cursor-pack`, `claude-code-pack`, `langgraph-pack`
 - [ ] Watch mode (re-analyse on save)
 
 ---
 
 ## Why Not cclint / cursor-doctor / AgentLinter?
 
-Those tools are great — use them too. They validate **structure**.
-
-`agent-doctor` validates **semantics**. They're complementary layers, not competitors.
-
-Think of it as:
+Those tools validate **structure**. `agent-doctor` validates **semantics**. They're complementary:
 
 ```
 cclint / cursor-doctor  →  "Is this file valid?"
@@ -437,27 +453,15 @@ agent-doctor            →  "Will this file work?"
 
 ## Contributing
 
-Early alpha. All contributions welcome — especially:
-- New semantic rule ideas (open an issue with a real-world failure case)
-- Rule packs for specific frameworks (LangGraph, CrewAI, AutoGen)
-- False positive reports
-
 ```bash
 git clone https://github.com/chiragdarji/agent-doctor
 cd agent-doctor
 npm install
-npm run dev
+npm run test        # 213 tests
+npm run dev         # watch mode
 ```
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md).
-
----
-
-## Related
-
-- [structural-thinking-mcp](https://github.com/chiragdarji/structural-thinking-mcp) — the prompt quality reasoning engine powering `agent-doctor`'s semantic layer
-- [cclint](https://github.com/carlrannaberg/cclint) — structural linter for Claude Code projects (complementary)
-- [cursor-doctor](https://github.com/nedcodes-ok/cursor-doctor) — structural linter for Cursor rules (complementary)
 
 ---
 
