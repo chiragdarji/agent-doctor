@@ -1,6 +1,6 @@
 {
   "name": "@chiragdarji/agent-doctor",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Semantic health check for AI agent instruction files",
   "keywords": [
     "claude",
@@ -18,7 +18,7 @@
   "homepage": "https://github.com/chiragdarji/agent-doctor",
   "repository": {
     "type": "git",
-    "url": "https://github.com/chiragdarji/agent-doctor.git"
+    "url": "git+https://github.com/chiragdarji/agent-doctor.git"
   },
   "type": "module",
   "main": "dist/index.js",
@@ -62,6 +62,9 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "tsup": {
     "entry": {
