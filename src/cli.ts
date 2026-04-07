@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { Command } from 'commander';
 import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';
@@ -15,10 +14,12 @@ import type { AnalysisResult, Severity } from './types.js';
 
 const program = new Command();
 
+declare const __CLI_VERSION__: string;
+
 program
   .name('agent-doctor')
   .description('Semantic health check for AI agent instruction files')
-  .version('0.1.0');
+  .version(__CLI_VERSION__);
 
 program
   .argument('[file]', 'Path to the instruction file to analyse')

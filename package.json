@@ -1,6 +1,6 @@
 {
   "name": "@chiragdarji/agent-doctor",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Semantic health check for AI agent instruction files",
   "keywords": [
     "claude",
@@ -37,6 +37,7 @@
     "lint": "eslint src --ext .ts",
     "format": "prettier --write src tests",
     "typecheck": "tsc --noEmit",
+    "postbuild": "chmod +x dist/cli.js",
     "prepublishOnly": "npm run build && npm run typecheck && npm run test:run"
   },
   "dependencies": {
@@ -66,18 +67,5 @@
   },
   "publishConfig": {
     "access": "public"
-  },
-  "tsup": {
-    "entry": {
-      "index": "src/index.ts",
-      "cli": "src/cli.ts",
-      "mcp-server": "src/mcp-server.ts"
-    },
-    "format": [
-      "esm"
-    ],
-    "dts": true,
-    "clean": true,
-    "sourcemap": true
   }
 }
