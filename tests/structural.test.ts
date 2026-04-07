@@ -336,6 +336,26 @@ describe('empty-section edge cases', () => {
     const issues = emptySection('# First\nContent.\n\n# EmptyAtLine5\n\n# Third\nContent.', 'CLAUDE.md');
     expect(issues[0]!.line).toBe(4);
   });
+
+  it('does not flag a heading that has child sub-headings (container section)', () => {
+    // ## Rule 1 has no direct text but contains #### Sub rule 1.1 — must NOT be flagged
+    const content = '## Rule 1\n\n#### Sub rule 1.1\n\nSome content here.';
+    const issues = emptySection(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('does not flag nested container sections at any depth', () => {
+    const content = '# Top\n\n## Mid\n\n### Bottom\n\nActual content.';
+    const issues = emptySection(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('still flags a heading with no content and no children', () => {
+    const content = '## Rule 1\n\n## Rule 2\n\nSome content.';
+    const issues = emptySection(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.context).toBe('Rule 1');
+  });
 });
 
 // ---------------------------------------------------------------------------
