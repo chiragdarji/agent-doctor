@@ -1,6 +1,8 @@
 import { Command } from 'commander';
-import { resolve } from 'node:path';
+import { resolve, dirname, join } from 'node:path';
 import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { spawn } from 'node:child_process';
 import { analyse, analyseAll } from './analyser/index.js';
 import { loadConfig } from './config.js';
 import { discoverFiles } from './discovery.js';
@@ -41,11 +43,11 @@ program
     mcp?: boolean;
   }) => {
     if (opts.mcp) {
-      process.stderr.write('MCP server mode is coming in v0.2.\n');
-      process.stderr.write(
-        'To use agent-doctor from Claude Code today, run: npx agent-doctor <file>\n',
-      );
-      process.exit(0);
+      // Spawn the MCP server entry point from the same dist directory
+      const mcpEntry = join(dirname(fileURLToPath(import.meta.url)), 'mcp-server.js');
+      const child = spawn(process.execPath, [mcpEntry], { stdio: 'inherit' });
+      child.on('exit', (code) => process.exit(code ?? 0));
+      return;
     }
 
     const cwd = process.cwd();
