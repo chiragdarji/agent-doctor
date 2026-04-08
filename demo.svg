@@ -1,204 +1,245 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 500" width="760" height="500">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 510" width="760" height="510">
   <defs>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&amp;display=swap');
+      @keyframes blink  { 0%,100% { opacity:1 } 50% { opacity:0 } }
+      @keyframes fadein { from { opacity:0 } to { opacity:1 } }
 
-      * { font-family: 'JetBrains Mono', 'Courier New', Courier, monospace; }
+      .cur { fill:#e6edf3; animation: blink 1s step-end infinite; }
 
-      /* ── Cursor blink ── */
-      .cursor {
-        fill: #e6edf3;
-        animation: blink 1s step-end infinite;
-      }
-      @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+      .c1  { opacity:0; animation: fadein .12s linear 0.5s  forwards; }
 
-      /* ── Typing animation for command 1 ── */
-      .cmd1 {
-        fill: #e6edf3;
-        font-size: 13.5px;
-        animation: type1 1.2s steps(50,end) 0.5s both;
-      }
-      @keyframes type1 {
-        from { clip-path: inset(0 100% 0 0); }
-        to   { clip-path: inset(0 0%   0 0); }
-      }
-      .cur1 { animation: cur-hide 0s linear 1.8s forwards; }
-      @keyframes cur-hide { to { opacity: 0; } }
+      .r00 { opacity:0; animation: fadein .12s linear 1.0s  forwards; }
+      .r01 { opacity:0; animation: fadein .12s linear 1.2s  forwards; }
+      .r02 { opacity:0; animation: fadein .12s linear 1.45s forwards; }
+      .r03 { opacity:0; animation: fadein .12s linear 1.65s forwards; }
+      .r04 { opacity:0; animation: fadein .12s linear 1.85s forwards; }
+      .r05 { opacity:0; animation: fadein .12s linear 2.05s forwards; }
+      .r06 { opacity:0; animation: fadein .12s linear 2.25s forwards; }
+      .r07 { opacity:0; animation: fadein .12s linear 2.45s forwards; }
+      .r08 { opacity:0; animation: fadein .12s linear 2.65s forwards; }
+      .r09 { opacity:0; animation: fadein .12s linear 2.85s forwards; }
+      .r10 { opacity:0; animation: fadein .12s linear 3.05s forwards; }
+      .r11 { opacity:0; animation: fadein .12s linear 3.25s forwards; }
+      .r12 { opacity:0; animation: fadein .12s linear 3.45s forwards; }
+      .r13 { opacity:0; animation: fadein .12s linear 3.65s forwards; }
+      .r14 { opacity:0; animation: fadein .12s linear 3.85s forwards; }
+      .r15 { opacity:0; animation: fadein .12s linear 4.05s forwards; }
+      .r16 { opacity:0; animation: fadein .12s linear 4.25s forwards; }
+      .r17 { opacity:0; animation: fadein .12s linear 4.45s forwards; }
+      .r18 { opacity:0; animation: fadein .12s linear 4.65s forwards; }
+      .r19 { opacity:0; animation: fadein .12s linear 4.85s forwards; }
+      .r20 { opacity:0; animation: fadein .12s linear 5.05s forwards; }
+      .r21 { opacity:0; animation: fadein .12s linear 5.25s forwards; }
+      .r22 { opacity:0; animation: fadein .12s linear 5.45s forwards; }
 
-      /* ── Typing animation for command 2 ── */
-      .cmd2 {
-        fill: #e6edf3;
-        font-size: 13.5px;
-        animation: type2 0.9s steps(32,end) 7.8s both;
-        opacity: 0;
-      }
-      @keyframes type2 {
-        from { clip-path: inset(0 100% 0 0); opacity: 1; }
-        to   { clip-path: inset(0 0%   0 0); opacity: 1; }
-      }
-      .prompt2 { animation: show 0s 7.8s forwards; opacity: 0; }
-      .cur2    { animation: cur-hide 0s linear 8.8s forwards; }
-      @keyframes show { to { opacity: 1; } }
-
-      /* ── Generic fade-in ── */
-      @keyframes fi { to { opacity: 1; } }
-      .fi { animation-name: fi; animation-fill-mode: forwards; animation-timing-function: linear; opacity: 0; }
-
-      .a00 { animation-duration:.12s; animation-delay:1.9s;  }
-      .a01 { animation-duration:.12s; animation-delay:2.1s;  }
-      .a02 { animation-duration:.12s; animation-delay:2.35s; }
-      .a03 { animation-duration:.12s; animation-delay:2.55s; }
-      .a04 { animation-duration:.12s; animation-delay:2.75s; }
-      .a05 { animation-duration:.12s; animation-delay:2.9s;  }
-      .a06 { animation-duration:.12s; animation-delay:3.05s; }
-      .a07 { animation-duration:.12s; animation-delay:3.2s;  }
-      .a08 { animation-duration:.12s; animation-delay:3.35s; }
-      .a09 { animation-duration:.12s; animation-delay:3.5s;  }
-      .a10 { animation-duration:.12s; animation-delay:3.65s; }
-      .a11 { animation-duration:.12s; animation-delay:3.8s;  }
-      .a12 { animation-duration:.12s; animation-delay:3.95s; }
-      .a13 { animation-duration:.12s; animation-delay:4.1s;  }
-      .a14 { animation-duration:.12s; animation-delay:4.25s; }
-      .a15 { animation-duration:.12s; animation-delay:4.4s;  }
-      .a16 { animation-duration:.12s; animation-delay:4.55s; }
-      .a17 { animation-duration:.12s; animation-delay:4.7s;  }
-      .a18 { animation-duration:.12s; animation-delay:4.85s; }
-      .a19 { animation-duration:.12s; animation-delay:5.0s;  }
-      .a20 { animation-duration:.12s; animation-delay:5.15s; }
-      .a21 { animation-duration:.12s; animation-delay:5.3s;  }
-      .a22 { animation-duration:.12s; animation-delay:5.45s; }
-      .a23 { animation-duration:.12s; animation-delay:5.6s;  }
-      .a24 { animation-duration:.20s; animation-delay:5.75s; }
-
-      /* fix output */
-      .b01 { animation-duration:.15s; animation-delay:8.9s; }
-      .b02 { animation-duration:.15s; animation-delay:9.1s; }
-      .b03 { animation-duration:.15s; animation-delay:9.3s; }
-      .b04 { animation-duration:.15s; animation-delay:9.5s; }
-      .b05 { animation-duration:.25s; animation-delay:9.7s; }
+      .c2  { opacity:0; animation: fadein .12s linear 6.2s  forwards; }
+      .f01 { opacity:0; animation: fadein .12s linear 7.0s  forwards; }
+      .f02 { opacity:0; animation: fadein .12s linear 7.2s  forwards; }
     </style>
   </defs>
 
-  <!-- ── Window chrome ─────────────────────────────────────── -->
-  <rect width="760" height="500" rx="12" fill="#0d1117"/>
-  <!-- title bar -->
-  <rect width="760" height="38" rx="12" fill="#161b22"/>
-  <rect y="28" width="760" height="10" fill="#161b22"/>
-  <!-- traffic lights -->
-  <circle cx="22" cy="19" r="6.5" fill="#ff5f57"/>
-  <circle cx="44" cy="19" r="6.5" fill="#ffbd2e"/>
-  <circle cx="66" cy="19" r="6.5" fill="#28c941"/>
-  <!-- title -->
-  <text x="380" y="24" text-anchor="middle" font-size="12" fill="#6e7681" font-family="'JetBrains Mono','Courier New',monospace">agent-doctor 🩺</text>
+  <!-- Window background -->
+  <rect width="760" height="510" rx="10" fill="#0d1117"/>
 
-  <!-- ══════════════════════════════════════════════════════════
-       COMMAND 1: full analysis
-  ══════════════════════════════════════════════════════════ -->
-  <!-- prompt -->
-  <text x="18" y="65" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace">
+  <!-- Title bar -->
+  <rect width="760" height="38" rx="10" fill="#161b22"/>
+  <rect y="27" width="760" height="11" fill="#161b22"/>
+
+  <!-- Traffic lights -->
+  <circle cx="22" cy="19" r="6" fill="#ff5f57"/>
+  <circle cx="42" cy="19" r="6" fill="#ffbd2e"/>
+  <circle cx="62" cy="19" r="6" fill="#28c941"/>
+
+  <!-- Title bar label -->
+  <text x="380" y="24" text-anchor="middle"
+        font-size="12" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        fill="#6e7681">agent-doctor</text>
+
+  <!-- ================================================
+       PROMPT 1
+  ================================================ -->
+  <text x="18" y="64"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace">
     <tspan fill="#3fb950">~/project</tspan><tspan fill="#6e7681"> $ </tspan>
   </text>
-  <!-- typed command -->
-  <g transform="translate(97,65)">
-    <text class="cmd1">ANTHROPIC_API_KEY=sk-ant-… npx agent-doctor CLAUDE.md</text>
-  </g>
-  <!-- cursor while typing -->
-  <rect x="97" y="52" width="8.5" height="16" fill="#e6edf3" class="cursor cur1"/>
+  <!-- command (fades in) -->
+  <text x="98" y="64" class="c1"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        fill="#e6edf3">ANTHROPIC_API_KEY=sk-ant-... npx agent-doctor CLAUDE.md</text>
+  <!-- blinking cursor (disappears when output starts) -->
+  <rect x="98" y="52" width="8" height="15" class="cur r00"
+        style="animation: blink 1s step-end infinite, fadein .12s linear 1.0s forwards;
+               opacity:0;"/>
 
-  <!-- ── Header line ── -->
-  <text x="18" y="88" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a00">
-    <tspan fill="#6e7681">agent-doctor </tspan><tspan fill="#e6edf3">🩺  </tspan><tspan fill="#6e7681">Analysing </tspan><tspan fill="#79c0ff">CLAUDE.md</tspan><tspan fill="#6e7681">…</tspan>
-  </text>
+  <!-- ================================================
+       OUTPUT
+  ================================================ -->
 
-  <!-- ── Issue 1: CRITICAL todo ── -->
-  <text x="18" y="112" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a01">
-    <tspan fill="#ff7b72" font-weight="bold">❌  CRITICAL</tspan><tspan fill="#e6edf3">  Incomplete instruction marker </tspan><tspan fill="#e3b341">"TODO"</tspan><tspan fill="#e6edf3"> found</tspan>
-  </text>
-  <text x="18" y="128" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a02">
-    <tspan fill="#6e7681">    Line 14: </tspan><tspan fill="#e3b341">"TODO: add tool constraints here"</tspan>
-  </text>
-  <text x="18" y="144" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a03">
-    <tspan fill="#6e7681">    Agent will follow this literally — replace before deploying.</tspan>
-  </text>
-  <text x="18" y="160" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a04">
-    <tspan fill="#6e7681">    → </tspan><tspan fill="#56d364">Replace the placeholder with the actual instruction.</tspan>
+  <!-- Header -->
+  <text x="18" y="87"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        class="r00">
+    <tspan fill="#6e7681">agent-doctor  Analysing </tspan>
+    <tspan fill="#79c0ff">CLAUDE.md</tspan>
+    <tspan fill="#6e7681">...</tspan>
   </text>
 
-  <!-- ── Issue 2: CRITICAL unclosed ── -->
-  <text x="18" y="182" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a05">
-    <tspan fill="#ff7b72" font-weight="bold">❌  CRITICAL</tspan><tspan fill="#e6edf3">  Unclosed code fence (</tspan><tspan fill="#e3b341">```</tspan><tspan fill="#e6edf3">) — everything after line 22 is code</tspan>
+  <!-- CRITICAL 1 -->
+  <text x="18" y="110"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        class="r01">
+    <tspan fill="#ff7b72" font-weight="bold">X  CRITICAL</tspan>
+    <tspan fill="#e6edf3">  Incomplete instruction marker </tspan>
+    <tspan fill="#e3b341">"TODO"</tspan>
+    <tspan fill="#e6edf3"> found</tspan>
   </text>
-  <text x="18" y="198" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a06">
-    <tspan fill="#6e7681">    → </tspan><tspan fill="#56d364">Add a closing ``` fence to end the code block.</tspan>
+  <text x="18" y="126"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        class="r02">
+    <tspan fill="#6e7681">    Line 14: </tspan>
+    <tspan fill="#e3b341">"TODO: add tool constraints here"</tspan>
   </text>
-
-  <!-- ── Issue 3: WARNING duplicate heading ── -->
-  <text x="18" y="220" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a07">
-    <tspan fill="#e3b341" font-weight="bold">⚠   WARNING</tspan><tspan fill="#e6edf3">   Heading </tspan><tspan fill="#79c0ff">"Rules"</tspan><tspan fill="#e6edf3"> appears more than once (lines 8 and 34)</tspan>
-  </text>
-  <text x="18" y="236" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a08">
-    <tspan fill="#6e7681">    → </tspan><tspan fill="#56d364">Rename or merge — agents can't determine which copy takes precedence.</tspan>
-  </text>
-
-  <!-- ── Issue 4: WARNING decision-loop ── -->
-  <text x="18" y="258" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a09">
-    <tspan fill="#e3b341" font-weight="bold">⚠   WARNING</tspan><tspan fill="#e6edf3">   Rule 8 × Rule 12 — </tspan><tspan fill="#ff7b72">Decision loop detected</tspan>
-  </text>
-  <text x="18" y="274" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a10">
-    <tspan fill="#6e7681">    Rule 8:  </tspan><tspan fill="#e6edf3">"Always ask before making file changes"</tspan>
-  </text>
-  <text x="18" y="290" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a11">
-    <tspan fill="#6e7681">    Rule 12: </tspan><tspan fill="#e6edf3">"Complete tasks autonomously without interruption"</tspan>
-  </text>
-  <text x="18" y="306" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a12">
-    <tspan fill="#6e7681">    → </tspan><tspan fill="#56d364">Add scope: "Ask only before destructive operations."</tspan>
+  <text x="18" y="142"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        class="r03" fill="#6e7681">    Agent will follow this literally -- replace before deploying.</text>
+  <text x="18" y="158"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        class="r04">
+    <tspan fill="#6e7681">    -&gt; </tspan>
+    <tspan fill="#56d364">Replace the placeholder with the actual instruction.</tspan>
   </text>
 
-  <!-- ── Issue 5: SUGGEST negation-heavy ── -->
-  <text x="18" y="328" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a13">
-    <tspan fill="#79c0ff" font-weight="bold">💡  SUGGEST</tspan><tspan fill="#e6edf3">   Section </tspan><tspan fill="#79c0ff">"Output Format"</tspan><tspan fill="#e6edf3"> has &gt;60% negation-based instructions</tspan>
+  <!-- CRITICAL 2 -->
+  <text x="18" y="180"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        class="r05">
+    <tspan fill="#ff7b72" font-weight="bold">X  CRITICAL</tspan>
+    <tspan fill="#e6edf3">  Unclosed code fence (</tspan>
+    <tspan fill="#e3b341">```</tspan>
+    <tspan fill="#e6edf3">) -- everything after line 22 is code</tspan>
   </text>
-  <text x="18" y="344" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a14">
-    <tspan fill="#6e7681">    → </tspan><tspan fill="#56d364">Rewrite as positive: "Never write long responses" → "Keep under 100 words"</tspan>
+  <text x="18" y="196"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        class="r06" fill="#6e7681">    Agent reads the rest of the file as a code block.</text>
+  <text x="18" y="212"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        class="r07">
+    <tspan fill="#6e7681">    -&gt; </tspan>
+    <tspan fill="#56d364">Add a closing ``` fence to end the code block.</tspan>
   </text>
 
-  <!-- ── Divider ── -->
-  <text x="18" y="366" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" fill="#30363d" class="fi a15">────────────────────────────────────────────────────────────</text>
-
-  <!-- ── Score block ── -->
-  <text x="18" y="384" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a16">
-    <tspan fill="#e6edf3" font-weight="bold">Health Score  </tspan><tspan fill="#ff7b72" font-weight="bold">48 / 100</tspan><tspan fill="#e6edf3" font-weight="bold">  (D)</tspan>
+  <!-- WARNING: duplicate heading -->
+  <text x="18" y="234"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        class="r08">
+    <tspan fill="#e3b341" font-weight="bold">!  WARNING</tspan>
+    <tspan fill="#e6edf3">   Heading </tspan>
+    <tspan fill="#79c0ff">"Rules"</tspan>
+    <tspan fill="#e6edf3"> appears more than once (lines 8 and 34)</tspan>
   </text>
-  <text x="18" y="400" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a17">
-    <tspan fill="#6e7681">Issues        </tspan><tspan fill="#ff7b72">2 critical</tspan><tspan fill="#6e7681"> · </tspan><tspan fill="#e3b341">2 warnings</tspan><tspan fill="#6e7681"> · </tspan><tspan fill="#79c0ff">1 suggestion</tspan>
+  <text x="18" y="250"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        class="r09">
+    <tspan fill="#6e7681">    -&gt; </tspan>
+    <tspan fill="#56d364">Rename or merge -- agents cannot determine which copy takes precedence.</tspan>
   </text>
-  <text x="18" y="416" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a18">
-    <tspan fill="#6e7681">Files         </tspan><tspan fill="#e6edf3">CLAUDE.md</tspan>
+
+  <!-- WARNING: decision-loop -->
+  <text x="18" y="272"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        class="r10">
+    <tspan fill="#e3b341" font-weight="bold">!  WARNING</tspan>
+    <tspan fill="#e6edf3">   Rule 8 x Rule 12 -- </tspan>
+    <tspan fill="#ff7b72">Decision loop detected</tspan>
   </text>
-  <text x="18" y="432" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi a19">
-    <tspan fill="#6e7681">Model         </tspan><tspan fill="#d2a8ff">claude-sonnet-4-6</tspan>
+  <text x="18" y="288"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        class="r11">
+    <tspan fill="#6e7681">    Rule 8:  </tspan>
+    <tspan fill="#e6edf3">"Always ask before making file changes"</tspan>
   </text>
-  <text x="18" y="448" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" fill="#30363d" class="fi a20">────────────────────────────────────────────────────────────</text>
-
-  <!-- ══════════════════════════════════════════════════════════
-       COMMAND 2: --fix
-  ══════════════════════════════════════════════════════════ -->
-
-  <!-- prompt 2 (appears after score) -->
-  <g class="fi a24">
-    <text x="18" y="468" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace">
-      <tspan fill="#3fb950">~/project</tspan><tspan fill="#6e7681"> $ </tspan>
-    </text>
-  </g>
-
-  <!-- typed command 2 -->
-  <g transform="translate(97,468)" class="prompt2">
-    <text class="cmd2">npx agent-doctor CLAUDE.md --fix</text>
-  </g>
-  <rect x="97" y="455" width="8.5" height="16" fill="#e6edf3" class="cursor cur2 prompt2"/>
-
-  <!-- fix output -->
-  <text x="18" y="489" font-size="13.5" font-family="'JetBrains Mono','Courier New',monospace" class="fi b01">
-    <tspan fill="#56d364" font-weight="bold">✅  Fixed: </tspan><tspan fill="#e6edf3">todo-in-instructions, unclosed-code-block</tspan><tspan fill="#6e7681">  in CLAUDE.md</tspan>
+  <text x="18" y="304"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        class="r12">
+    <tspan fill="#6e7681">    Rule 12: </tspan>
+    <tspan fill="#e6edf3">"Complete tasks autonomously without interruption"</tspan>
   </text>
+  <text x="18" y="320"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        class="r13">
+    <tspan fill="#6e7681">    -&gt; </tspan>
+    <tspan fill="#56d364">Add scope: "Ask only before destructive operations."</tspan>
+  </text>
+
+  <!-- SUGGEST: negation-heavy -->
+  <text x="18" y="342"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        class="r14">
+    <tspan fill="#79c0ff" font-weight="bold">i  SUGGEST</tspan>
+    <tspan fill="#e6edf3">   Section </tspan>
+    <tspan fill="#79c0ff">"Output Format"</tspan>
+    <tspan fill="#e6edf3"> has &gt;60% negation-based instructions</tspan>
+  </text>
+  <text x="18" y="358"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        class="r15">
+    <tspan fill="#6e7681">    -&gt; </tspan>
+    <tspan fill="#56d364">Rewrite positive: "Never write long responses" -&gt; "Keep under 100 words"</tspan>
+  </text>
+
+  <!-- Divider -->
+  <line x1="18" y1="375" x2="742" y2="375" stroke="#21262d" stroke-width="1" class="r16"/>
+
+  <!-- Score block -->
+  <text x="18" y="394"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        class="r17">
+    <tspan fill="#e6edf3" font-weight="bold">Health Score  </tspan>
+    <tspan fill="#ff7b72" font-weight="bold">48 / 100  (D)</tspan>
+  </text>
+  <text x="18" y="410"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        class="r18">
+    <tspan fill="#6e7681">Issues        </tspan>
+    <tspan fill="#ff7b72">2 critical</tspan>
+    <tspan fill="#6e7681"> . </tspan>
+    <tspan fill="#e3b341">2 warnings</tspan>
+    <tspan fill="#6e7681"> . </tspan>
+    <tspan fill="#79c0ff">1 suggestion</tspan>
+  </text>
+  <text x="18" y="426"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        class="r19">
+    <tspan fill="#6e7681">Files         </tspan>
+    <tspan fill="#e6edf3">CLAUDE.md</tspan>
+  </text>
+  <text x="18" y="442"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        class="r20">
+    <tspan fill="#6e7681">Model         </tspan>
+    <tspan fill="#d2a8ff">claude-sonnet-4-6</tspan>
+  </text>
+  <line x1="18" y1="454" x2="742" y2="454" stroke="#21262d" stroke-width="1" class="r21"/>
+
+  <!-- ================================================
+       PROMPT 2: --fix
+  ================================================ -->
+  <text x="18" y="474"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        class="r22">
+    <tspan fill="#3fb950">~/project</tspan><tspan fill="#6e7681"> $ </tspan>
+  </text>
+  <text x="98" y="474" class="c2"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        fill="#e6edf3">npx agent-doctor CLAUDE.md --fix</text>
+
+  <!-- Fix output -->
+  <text x="18" y="494"
+        font-size="13" font-family="SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace"
+        class="f01">
+    <tspan fill="#56d364" font-weight="bold">Fixed: </tspan>
+    <tspan fill="#e6edf3">todo-in-instructions, unclosed-code-block</tspan>
+    <tspan fill="#6e7681">  in CLAUDE.md</tspan>
+  </text>
+
 </svg>
