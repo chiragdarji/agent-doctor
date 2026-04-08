@@ -4,6 +4,14 @@ All notable changes to `agent-doctor` are documented here.
 
 ---
 
+## [0.3.1] — 2026-04-08
+
+### Fixed
+- `--fix` and `--dry-run` CLI flags not recognised — published 0.3.0 tarball was built before source was committed
+- MCP server version string corrected to `0.3.1`
+
+---
+
 ## [0.3.0] — 2026-04-07
 
 ### Added

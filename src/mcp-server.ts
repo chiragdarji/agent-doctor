@@ -99,7 +99,7 @@ function strArg(args: unknown, key: string): string | undefined {
 // ---------------------------------------------------------------------------
 
 const server = new Server(
-  { name: 'agent-doctor', version: '0.2.2' },
+  { name: 'agent-doctor', version: '0.3.1' },
   { capabilities: { tools: {} } },
 );
 
