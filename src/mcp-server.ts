@@ -28,7 +28,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { analyse } from './analyser/index.js';
+import { analyse, computeReadiness } from './analyser/index.js';
 import { analyseSemantics } from './analyser/semantic.js';
 import {
   createAnthropicClient,
@@ -249,6 +249,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const grade =
           score >= 90 ? 'A' : score >= 75 ? 'B' : score >= 60 ? 'C' : score >= 40 ? 'D' : 'F';
 
+        const { readinessScore, readinessDimensions } = computeReadiness(allIssues);
         result = {
           file: filePath,
           score,
@@ -257,6 +258,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           tokenCount: parsed.tokenCount,
           analysedAt: new Date().toISOString(),
           layers: config.layers,
+          readinessScore,
+          readinessDimensions,
         };
       } else {
         result = await analyse(filePath, config);
@@ -277,10 +280,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 (i.context ? `\n\`\`\`\n${i.context}\n\`\`\`` : ''),
             );
 
+      const rd = result.readinessDimensions;
       const summary = [
         `# agent-doctor report`,
         `**File:** \`${result.file}\``,
         `**Score:** ${result.score}/100  **Grade:** ${result.grade}`,
+        `**Readiness:** ${result.readinessScore}/100  (obs:${rd.observable} bnd:${rd.bounded} rev:${rd.reversible} tld:${rd.tooled} doc:${rd.documented})`,
         `**Layers:** ${result.layers.join(' + ')}`,
         `**Issues:** ${criticals.length} critical · ${warnings.length} warnings · ${suggestions.length} suggestions`,
         ...(semanticSkipped

@@ -12,6 +12,9 @@ import {
   headingDepthSkip,
   negationHeavy,
   todoInInstructions,
+  missingSuccessCriteria,
+  hardcodedEnvironment,
+  missingToolList,
 } from '../rules/structural/index.js';
 import type { Config, Issue, ParsedFile, StructuralRule } from '../types.js';
 
@@ -37,6 +40,10 @@ export function runStructuralAnalysis(parsed: ParsedFile, config: Config): Issue
     todoInInstructions,
     // Token budget
     createTokenBudgetRule(config.tokenBudgetWarning),
+    // Agent readiness rules (Factory.ai + OpenAI Harness frameworks)
+    missingSuccessCriteria,
+    hardcodedEnvironment,
+    missingToolList,
   ];
 
   // Pass rawContent so frontmatter-aware rules (missing-frontmatter, missing-always-apply)

@@ -13,6 +13,8 @@ export type RuleId =
   | 'ambiguous-pronoun'
   | 'over-permissive'
   | 'cross-file-conflict'
+  | 'missing-recovery-strategy'
+  | 'unobservable-outcome'
   // Structural rules
   | 'missing-frontmatter'
   | 'missing-always-apply'
@@ -26,7 +28,10 @@ export type RuleId =
   | 'missing-file-glob'
   | 'heading-depth-skip'
   | 'negation-heavy'
-  | 'todo-in-instructions';
+  | 'todo-in-instructions'
+  | 'missing-success-criteria'
+  | 'hardcoded-environment'
+  | 'missing-tool-list';
 
 export interface Issue {
   ruleId: RuleId;
@@ -38,6 +43,19 @@ export interface Issue {
   relatedLine?: number;
 }
 
+export interface ReadinessDimensions {
+  /** Can the agent verify task completion? */
+  observable: number;
+  /** Is the scope and task clearly bounded? */
+  bounded: number;
+  /** Are risky/destructive operations guarded with recovery guidance? */
+  reversible: number;
+  /** Are available tools enumerated and correctly described? */
+  tooled: number;
+  /** Is enough context provided for the agent to make decisions? */
+  documented: number;
+}
+
 export interface AnalysisResult {
   file: string;
   score: number;
@@ -46,6 +64,10 @@ export interface AnalysisResult {
   tokenCount: number;
   analysedAt: string;
   layers: AnalysisLayer[];
+  /** Aggregate agent-readiness score (0–100), average of the 5 dimensions. */
+  readinessScore: number;
+  /** Per-dimension breakdown of agent readiness (Factory.ai + OpenAI Harness framework). */
+  readinessDimensions: ReadinessDimensions;
 }
 
 export type AnalysisLayer = 'structural' | 'semantic';

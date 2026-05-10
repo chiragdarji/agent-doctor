@@ -70,6 +70,26 @@ You will receive the contents of one agent instruction file. Analyse it for the 
    GOOD: "If the test fails, fix the source code and re-run the test suite."
    Flag ONLY if the ambiguity could cause the agent to act on the wrong object.
 
+9. missing-recovery-strategy  (severity: warning)
+   Instructions reference a destructive or risky operation (deploy, delete, drop, migrate, overwrite,
+   wipe, reset, truncate, remove) with no error handling, rollback, retry, or recovery guidance nearby.
+   BAD: "Run the deploy script when the feature is complete."
+   BAD: "Delete all records older than 30 days at midnight."
+   GOOD: "Run the deploy script. If it exits non-zero, run ./rollback.sh and page the on-call engineer."
+   GOOD: "Delete records older than 30 days. If deletion fails, log the error and abort — do not retry."
+   Flag ONLY for genuinely destructive or irreversible operations; do not flag additive operations.
+
+10. unobservable-outcome  (severity: warning)
+    A task is described but there is no way for the agent to verify that it completed it correctly —
+    no tests, assertions, expected output, review step, or acceptance criteria mentioned.
+    BAD: "Implement the payment gateway integration."
+    BAD: "Refactor the authentication module for clarity."
+    GOOD: "Implement the payment gateway. Verify by running npm test -- payment and confirming all 12 tests pass."
+    GOOD: "Refactor the auth module. The refactor is complete when all existing tests still pass and
+          no new type errors appear."
+    Flag ONLY when a task is non-trivial and there is genuinely no observable completion signal
+    anywhere in the file for that task.
+
 ━━━ OUTPUT FORMAT ━━━
 
 Return ONLY a valid JSON array. No prose, no markdown fences, no explanation outside the JSON.
@@ -77,7 +97,7 @@ If you find no issues, return exactly: []
 
 Each element must match this shape exactly:
 {
-  "ruleId": "<one of: decision-loop | contradiction | vague-boundary | tool-mismatch | missing-fallback | scope-bleed | over-permissive | ambiguous-pronoun>",
+  "ruleId": "<one of: decision-loop | contradiction | vague-boundary | tool-mismatch | missing-fallback | scope-bleed | over-permissive | ambiguous-pronoun | missing-recovery-strategy | unobservable-outcome>",
   "severity": "<critical | warning | suggestion>",
   "message": "<one sentence: what the specific problem is>",
   "suggestion": "<one concrete sentence: how to fix it>",
@@ -87,7 +107,7 @@ Each element must match this shape exactly:
 
 ━━━ CONSTRAINTS ━━━
 
-- Return at most 8 issues. Prioritise the most impactful ones.
+- Return at most 10 issues. Prioritise the most impactful ones.
 - Do NOT flag structural issues (missing frontmatter, empty sections, file format problems).
 - Do NOT flag style preferences or things that are merely suboptimal.
 - Be conservative: a false negative is better than a false positive.
