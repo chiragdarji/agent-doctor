@@ -11,3 +11,6 @@ export { missingFileGlob } from './missing-file-glob.js';
 export { headingDepthSkip } from './heading-depth-skip.js';
 export { negationHeavy } from './negation-heavy.js';
 export { todoInInstructions } from './todo-in-instructions.js';
+export { missingSuccessCriteria } from './missing-success-criteria.js';
+export { hardcodedEnvironment } from './hardcoded-environment.js';
+export { missingToolList } from './missing-tool-list.js';

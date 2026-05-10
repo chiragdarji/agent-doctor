@@ -20,6 +20,8 @@ const SEMANTIC_RULE_IDS = [
   'scope-bleed',
   'over-permissive',
   'ambiguous-pronoun',
+  'missing-recovery-strategy',
+  'unobservable-outcome',
 ] as const;
 
 const IssueSchema = z.object({
@@ -32,7 +34,7 @@ const IssueSchema = z.object({
   relatedLine: z.number().int().positive().optional(),
 });
 
-const ResponseSchema = z.array(IssueSchema).max(8);
+const ResponseSchema = z.array(IssueSchema).max(10);
 
 // ---------------------------------------------------------------------------
 // JSON extraction — handles both bare arrays and markdown-fenced blocks

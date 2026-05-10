@@ -108,12 +108,25 @@ export function formatResult(result: AnalysisResult): string {
   const scoreStr = scoreColour(result.score)(`${result.score} / 100`);
   const gradeStr = gradeColour(result.grade)(result.grade);
 
+  const { readinessScore, readinessDimensions: rd } = result;
+  const readinessStr = scoreColour(readinessScore)(`${readinessScore} / 100`);
+  const dimStr = [
+    `obs ${rd.observable}`,
+    `bnd ${rd.bounded}`,
+    `rev ${rd.reversible}`,
+    `tld ${rd.tooled}`,
+    `doc ${rd.documented}`,
+  ]
+    .map((d) => chalk.dim(d))
+    .join(chalk.dim(' · '));
+
   lines.push(SEPARATOR);
-  lines.push(`Health Score  ${scoreStr}  (${gradeStr})`);
-  lines.push(`Issues        ${issueSummary}`);
-  lines.push(`Files         ${result.file}`);
+  lines.push(`Health Score   ${scoreStr}  (${gradeStr})`);
+  lines.push(`Readiness      ${readinessStr}  ${dimStr}`);
+  lines.push(`Issues         ${issueSummary}`);
+  lines.push(`Files          ${result.file}`);
   if (result.layers.includes('semantic')) {
-    lines.push(`Model         ${process.env['AGENT_DOCTOR_MODEL'] ?? 'claude-sonnet-4-6'}`);
+    lines.push(`Model          ${process.env['AGENT_DOCTOR_MODEL'] ?? 'claude-sonnet-4-6'}`);
   }
   lines.push(SEPARATOR);
 

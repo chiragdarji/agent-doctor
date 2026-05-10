@@ -13,6 +13,9 @@ import { missingFileGlob } from '../src/rules/structural/missing-file-glob.js';
 import { headingDepthSkip } from '../src/rules/structural/heading-depth-skip.js';
 import { negationHeavy } from '../src/rules/structural/negation-heavy.js';
 import { todoInInstructions } from '../src/rules/structural/todo-in-instructions.js';
+import { missingSuccessCriteria } from '../src/rules/structural/missing-success-criteria.js';
+import { hardcodedEnvironment } from '../src/rules/structural/hardcoded-environment.js';
+import { missingToolList } from '../src/rules/structural/missing-tool-list.js';
 import { runStructuralAnalysis } from '../src/analyser/structural.js';
 import { parseFile } from '../src/parser/index.js';
 import { DEFAULT_CONFIG } from '../src/types.js';
@@ -670,6 +673,156 @@ describe('runStructuralAnalysis config filtering', () => {
       },
     };
     const issues = runStructuralAnalysis(parsed, config);
+    expect(issues).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// missing-success-criteria
+// ---------------------------------------------------------------------------
+describe('missing-success-criteria', () => {
+  it('passes a section with task verbs AND success signals', () => {
+    const content = [
+      '## Implementation',
+      'Implement the payment gateway integration. Verify by running npm test and confirming all tests pass.',
+      'Build the new API endpoint. Done when the integration tests are green.',
+      'Create the user profile page. Expected: the page renders without errors.',
+    ].join('\n');
+    const issues = missingSuccessCriteria(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('flags a section with task verbs and no success signal', () => {
+    const content = [
+      '## Implementation',
+      'Implement the payment gateway integration using Stripe.',
+      'Build the webhook handler for all incoming events.',
+      'Create the order confirmation email template.',
+    ].join('\n');
+    const issues = missingSuccessCriteria(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.ruleId).toBe('missing-success-criteria');
+    expect(issues[0]!.severity).toBe('warning');
+    expect(issues[0]!.context).toBe('Implementation');
+  });
+
+  it('skips sections with example/overview/background headings', () => {
+    const content = [
+      '## Example',
+      'Implement the payment gateway using Stripe SDK.',
+      'Build the redirect flow for 3DS authentication.',
+      'Create the webhook listener on the /webhooks endpoint.',
+    ].join('\n');
+    const issues = missingSuccessCriteria(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('skips sections with fewer than 3 sentences', () => {
+    const content = ['## Quick Task', 'Implement the caching layer.'].join('\n');
+    const issues = missingSuccessCriteria(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('does not flag sections without task verbs', () => {
+    const content = [
+      '## Code Style',
+      'TypeScript strict mode — no any.',
+      'Named exports only; no default exports.',
+      'All async functions must have try/catch blocks.',
+    ].join('\n');
+    const issues = missingSuccessCriteria(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// hardcoded-environment
+// ---------------------------------------------------------------------------
+describe('hardcoded-environment', () => {
+  it('passes a file with no hardcoded paths', () => {
+    const content = '## Setup\nRun `npm install` then `npm start`.\n';
+    const issues = hardcodedEnvironment(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('flags a Unix absolute path to a home directory', () => {
+    const content = '## Config\nThe config file lives at /home/ubuntu/project/.env\n';
+    const issues = hardcodedEnvironment(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.ruleId).toBe('hardcoded-environment');
+    expect(issues[0]!.severity).toBe('warning');
+  });
+
+  it('flags a Windows absolute path', () => {
+    const content = '## Deployment\nCopy the build to C:\\Users\\admin\\deploy\\\n';
+    const issues = hardcodedEnvironment(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.ruleId).toBe('hardcoded-environment');
+  });
+
+  it('flags a hardcoded localhost port', () => {
+    const content = '## Dev Server\nConnect to localhost:3000 to view the app.\n';
+    const issues = hardcodedEnvironment(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.ruleId).toBe('hardcoded-environment');
+  });
+
+  it('skips paths inside code blocks', () => {
+    const content = '## Example\n```\ncp /home/user/file.txt /tmp/\n```\n';
+    const issues = hardcodedEnvironment(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('skips lines that are clearly examples', () => {
+    const content = '## Setup\nFor example, you might see /home/username/project in CI logs.\n';
+    const issues = hardcodedEnvironment(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// missing-tool-list
+// ---------------------------------------------------------------------------
+describe('missing-tool-list', () => {
+  it('passes a file that has no tool references', () => {
+    const content = '## Style\nUse TypeScript strict mode.\n';
+    const issues = missingToolList(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('passes when tool references exist AND a tools section is present', () => {
+    const content = [
+      '## Available Tools',
+      '- `search_files` — searches the filesystem',
+      '',
+      '## Behaviour',
+      'Use the search_files tool to locate relevant code.',
+    ].join('\n');
+    const issues = missingToolList(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('flags when tool references exist but no tools section is present', () => {
+    const content = [
+      '## Behaviour',
+      'You have access to the search_files tool and the read_file tool.',
+      'Call the appropriate tool for each task.',
+    ].join('\n');
+    const issues = missingToolList(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.ruleId).toBe('missing-tool-list');
+    expect(issues[0]!.severity).toBe('suggestion');
+  });
+
+  it('recognises "capabilities" as a valid tool section heading', () => {
+    const content = [
+      '## Capabilities',
+      '- `fetch_data` — retrieves records',
+      '',
+      '## Tasks',
+      'Invoke the fetch_data tool to get the data.',
+    ].join('\n');
+    const issues = missingToolList(content, 'CLAUDE.md');
     expect(issues).toHaveLength(0);
   });
 });

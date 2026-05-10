@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { resolve } from 'node:path';
-import { analyse, analyseAll } from '../src/analyser/index.js';
+import { analyse, analyseAll, computeReadiness } from '../src/analyser/index.js';
 import { DEFAULT_CONFIG } from '../src/types.js';
-import type { AnalysisLayer, Config } from '../src/types.js';
+import type { AnalysisLayer, Config, Issue } from '../src/types.js';
 
 const FIXTURES = resolve(import.meta.dirname, 'fixtures');
 
@@ -121,6 +121,132 @@ describe('score and grade boundaries', () => {
     });
     expect(result.score).toBeGreaterThanOrEqual(0);
     expect(result.score).toBeLessThanOrEqual(100);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// readiness score fields on AnalysisResult
+// ---------------------------------------------------------------------------
+describe('readiness score on AnalysisResult', () => {
+  it('includes readinessScore and readinessDimensions in result', async () => {
+    const result = await analyse(resolve(FIXTURES, 'good-claude.md'), STRUCTURAL_ONLY);
+    expect(typeof result.readinessScore).toBe('number');
+    expect(result.readinessDimensions).toBeDefined();
+    expect(typeof result.readinessDimensions.observable).toBe('number');
+    expect(typeof result.readinessDimensions.bounded).toBe('number');
+    expect(typeof result.readinessDimensions.reversible).toBe('number');
+    expect(typeof result.readinessDimensions.tooled).toBe('number');
+    expect(typeof result.readinessDimensions.documented).toBe('number');
+  });
+
+  it('readinessScore is 100 when no issues are found', async () => {
+    const result = await analyse(resolve(FIXTURES, 'good-claude.md'), STRUCTURAL_ONLY);
+    if (result.issues.length === 0) {
+      expect(result.readinessScore).toBe(100);
+    }
+  });
+
+  it('readinessScore is between 0 and 100', async () => {
+    const result = await analyse(resolve(FIXTURES, 'bad.mdc'), STRUCTURAL_ONLY);
+    expect(result.readinessScore).toBeGreaterThanOrEqual(0);
+    expect(result.readinessScore).toBeLessThanOrEqual(100);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeReadiness unit tests
+// ---------------------------------------------------------------------------
+describe('computeReadiness', () => {
+  it('returns all dimensions at 100 with no issues', () => {
+    const { readinessScore, readinessDimensions } = computeReadiness([]);
+    expect(readinessScore).toBe(100);
+    expect(readinessDimensions.observable).toBe(100);
+    expect(readinessDimensions.bounded).toBe(100);
+    expect(readinessDimensions.reversible).toBe(100);
+    expect(readinessDimensions.tooled).toBe(100);
+    expect(readinessDimensions.documented).toBe(100);
+  });
+
+  it('deducts from observable for unobservable-outcome', () => {
+    const issues: Issue[] = [
+      {
+        ruleId: 'unobservable-outcome',
+        severity: 'warning',
+        message: 'test',
+        suggestion: 'test',
+      },
+    ];
+    const { readinessDimensions } = computeReadiness(issues);
+    expect(readinessDimensions.observable).toBe(75);
+    expect(readinessDimensions.bounded).toBe(100);
+  });
+
+  it('deducts from reversible for missing-recovery-strategy', () => {
+    const issues: Issue[] = [
+      {
+        ruleId: 'missing-recovery-strategy',
+        severity: 'warning',
+        message: 'test',
+        suggestion: 'test',
+      },
+    ];
+    const { readinessDimensions } = computeReadiness(issues);
+    expect(readinessDimensions.reversible).toBe(75);
+  });
+
+  it('deducts from tooled for missing-tool-list', () => {
+    const issues: Issue[] = [
+      {
+        ruleId: 'missing-tool-list',
+        severity: 'suggestion',
+        message: 'test',
+        suggestion: 'test',
+      },
+    ];
+    const { readinessDimensions } = computeReadiness(issues);
+    expect(readinessDimensions.tooled).toBe(80);
+  });
+
+  it('clamps dimensions to 0 when deductions exceed 100', () => {
+    // 6 × scope-bleed each deducts 20 from bounded → 120 total → clamped to 0
+    const issues: Issue[] = Array.from({ length: 6 }, () => ({
+      ruleId: 'scope-bleed' as const,
+      severity: 'warning' as const,
+      message: 'test',
+      suggestion: 'test',
+    }));
+    const { readinessDimensions } = computeReadiness(issues);
+    expect(readinessDimensions.bounded).toBe(0);
+  });
+
+  it('readinessScore is the average of 5 dimensions (rounded)', () => {
+    const issues: Issue[] = [
+      {
+        ruleId: 'unobservable-outcome',
+        severity: 'warning',
+        message: 'test',
+        suggestion: 'test',
+      },
+    ];
+    const { readinessScore, readinessDimensions: rd } = computeReadiness(issues);
+    const expected = Math.round(
+      (rd.observable + rd.bounded + rd.reversible + rd.tooled + rd.documented) / 5,
+    );
+    expect(readinessScore).toBe(expected);
+  });
+
+  it('rules not in the deduction map do not affect readiness', () => {
+    const issues: Issue[] = [
+      {
+        ruleId: 'duplicate-heading',
+        severity: 'warning',
+        message: 'test',
+        suggestion: 'test',
+      },
+    ];
+    const { readinessScore, readinessDimensions } = computeReadiness(issues);
+    expect(readinessScore).toBe(100);
+    expect(readinessDimensions.bounded).toBe(100);
   });
 });
 

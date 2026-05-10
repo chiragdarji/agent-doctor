@@ -155,8 +155,8 @@ describe('analyseSemantics', () => {
     expect(issues[0]!.line).toBe(12);
   });
 
-  it('strips issues exceeding 8 (Zod max)', async () => {
-    const manyIssues = Array.from({ length: 10 }, (_, i) => ({
+  it('strips issues exceeding 10 (Zod max)', async () => {
+    const manyIssues = Array.from({ length: 11 }, (_, i) => ({
       ruleId: 'vague-boundary',
       severity: 'warning',
       message: `Issue ${i.toString()}`,
@@ -166,7 +166,7 @@ describe('analyseSemantics', () => {
       '# Test\nContent', 'CLAUDE.md', DEFAULT_CONFIG,
       mockClient(JSON.stringify(manyIssues)),
     );
-    // Zod schema has .max(8) — should return [] for the too-many case
+    // Zod schema has .max(10) — should return [] for the too-many case
     expect(issues).toEqual([]);
   });
 

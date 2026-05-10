@@ -22,6 +22,14 @@ function makeResult(overrides: Partial<AnalysisResult> = {}): AnalysisResult {
     tokenCount: 250,
     analysedAt: '2026-01-01T00:00:00.000Z',
     layers: ['structural'],
+    readinessScore: 100,
+    readinessDimensions: {
+      observable: 100,
+      bounded: 100,
+      reversible: 100,
+      tooled: 100,
+      documented: 100,
+    },
     ...overrides,
   };
 }
