@@ -57,11 +57,11 @@ Each task is scoped to a single commit. Check the box and push when done.
 > Goal: extend reach — integrate agent-doctor into more surfaces.
 
 ### 3A — Custom rule plugins
-- [ ] **3A.1** Define plugin interface in `src/types.ts` — `StructuralPlugin { ruleId: string; rule: StructuralRule }[]`
-- [ ] **3A.2** Update `src/config.ts` — add optional `plugins: string[]` field (paths to JS/TS rule files)
-- [ ] **3A.3** Update `src/analyser/structural.ts` — dynamically `import()` plugin files and append to rules array
-- [ ] **3A.4** Add tests in `tests/plugins.test.ts` — write a fixture plugin file, verify it fires correctly
-- [ ] **3A.5** Document plugin authoring in README with a minimal example
+- [x] **3A.1** Define plugin interface in `src/types.ts` — `PluginRule = StructuralRule` alias; `plugins: string[]` added to `Config` and `DEFAULT_CONFIG`
+- [x] **3A.2** Update `src/config.ts` — `plugins` key parsed automatically via spread merge in `loadConfig`; `src/plugin-loader.ts` created for dynamic imports
+- [x] **3A.3** Update `src/analyser/structural.ts` — accepts `pluginRules: PluginRule[]`; `src/analyser/index.ts` calls `loadPlugins()` once per `analyse`/`analyseAll`
+- [x] **3A.4** Add tests in `tests/plugin-loader.test.ts` — fixture plugins in `tests/fixtures/plugins/`; 13 tests covering load, fire, turn-off, skip-invalid
+- [x] **3A.5** Document plugin authoring in README — "Custom Rule Plugins" section with JS example, named exports, TypeScript typing
 
 ### 3B — `--readiness-report` command
 - [ ] **3B.1** Add `--readiness-report` flag to CLI — outputs a full human-readable breakdown of the 5 readiness dimensions with per-dimension guidance
@@ -115,4 +115,4 @@ Types: `docs` · `feat` · `fix` · `test` · `refactor` · `chore`
 
 ---
 
-_Last updated: 2026-06-04_
+_Last updated: 2026-06-04 — Phase 1 complete, Phase 2 complete, Phase 3A complete_
