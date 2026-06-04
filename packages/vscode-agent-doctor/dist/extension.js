@@ -2713,13 +2713,16 @@ function detectFileType(filePath) {
 }
 function parseMarkdown(filePath) {
   const raw = (0, import_node_fs.readFileSync)(filePath, "utf8");
-  const { content, data } = parseFrontmatter(raw);
+  return parseMarkdownContent(filePath, raw);
+}
+function parseMarkdownContent(filePath, rawContent) {
+  const { content, data } = parseFrontmatter(rawContent);
   const sections = parseSections(content);
   const hasFrontmatter = Object.keys(data).length > 0;
   return {
     filePath,
     fileType: detectFileType(filePath),
-    rawContent: raw,
+    rawContent,
     content,
     ...hasFrontmatter ? { frontmatter: data } : {},
     sections,
@@ -2739,12 +2742,15 @@ function parseFrontmatter2(raw) {
 }
 function parseMdc(filePath) {
   const raw = (0, import_node_fs2.readFileSync)(filePath, "utf8");
-  const { content, data } = parseFrontmatter2(raw);
+  return parseMdcContent(filePath, raw);
+}
+function parseMdcContent(filePath, rawContent) {
+  const { content, data } = parseFrontmatter2(rawContent);
   const sections = parseSections(content);
   return {
     filePath,
     fileType: "cursor-mdc",
-    rawContent: raw,
+    rawContent,
     content,
     frontmatter: data,
     sections,
@@ -3200,6 +3206,77 @@ var missingToolList = (content, _filePath) => {
   ];
 };
 
+// ../../src/analyser/platform.ts
+function detectPlatform(fileType) {
+  switch (fileType) {
+    case "claude-md":
+    case "claude-agent":
+    case "claude-command":
+      return "anthropic";
+    case "agents-md":
+      return "openai";
+    case "cursor-mdc":
+      return "cursor";
+    case "gemini-md":
+      return "gemini";
+    case "copilot-instructions":
+      return "github-copilot";
+    default:
+      return "unknown";
+  }
+}
+var PLATFORM_SUGGESTIONS = {
+  "missing-tool-list": {
+    anthropic: 'Add a "## Available Tools" section listing tools by name. Example: Bash, Read, Write, Edit, Glob, Grep, Agent.',
+    openai: 'Add a "## Tools" section listing the tool names that match your OpenAI tool definitions.',
+    cursor: "Add a section enumerating the Cursor tools your rule depends on (e.g. codebase_search, read_file, edit_file).",
+    "github-copilot": 'List the tools or extensions available to Copilot in an explicit "## Available capabilities" section.'
+  },
+  "missing-success-criteria": {
+    anthropic: 'Add a success signal after the task, e.g.: "> \u2705 Done when: all tests pass and the feature works end-to-end."',
+    openai: 'Define a completion check, e.g.: "The task is complete when the output matches the expected schema and no errors are logged."',
+    cursor: 'Add a completion note: "Verified when the file compiles, tests pass, and no diagnostics appear."'
+  },
+  "hardcoded-environment": {
+    anthropic: "Use placeholders like `<project-root>` or environment variables (e.g. `$HOME`) instead of absolute paths.",
+    openai: "Replace absolute paths with relative paths or environment variables set in your run configuration.",
+    cursor: "Use workspace-relative paths \u2014 Cursor resolves paths from the workspace root, not the OS home directory."
+  },
+  "missing-recovery-strategy": {
+    anthropic: 'Add a fallback instruction, e.g.: "If the deploy fails, run ./rollback.sh and open a GitHub issue with the error log."',
+    openai: 'Define error handling: "On failure, log the error to errors.log, revert the last change, and halt the pipeline."',
+    cursor: 'Add recovery guidance: "If the command errors, undo all file changes and report the error to the user."'
+  },
+  "unobservable-outcome": {
+    anthropic: 'Add a verification step: "Run `npm test` and confirm all tests pass before considering this done."',
+    openai: 'Add an assertion: "Verify by checking the API response matches the expected schema and status is 200."'
+  }
+};
+var PLATFORM_SEVERITY_OVERRIDES = {
+  // On Cursor, missing alwaysApply causes the rule to be silently skipped — treat as critical
+  "missing-always-apply": {
+    cursor: "critical"
+  },
+  // On Cursor, missing frontmatter prevents the file from loading at all
+  "missing-frontmatter": {
+    cursor: "critical"
+  }
+};
+function applyPlatformOverrides(issues, platform) {
+  if (platform === "unknown") return issues;
+  return issues.map((issue) => {
+    const ruleId = issue.ruleId;
+    const suggestionOverride = PLATFORM_SUGGESTIONS[ruleId]?.[platform];
+    const severityOverride = PLATFORM_SEVERITY_OVERRIDES[ruleId]?.[platform];
+    if (!suggestionOverride && !severityOverride) return issue;
+    return {
+      ...issue,
+      ...suggestionOverride ? { suggestion: suggestionOverride } : {},
+      ...severityOverride ? { severity: severityOverride } : {}
+    };
+  });
+}
+
 // ../../src/analyser/structural.ts
 function runStructuralAnalysis(parsed, config, pluginRules = []) {
   const rules = [
@@ -3224,10 +3301,12 @@ function runStructuralAnalysis(parsed, config, pluginRules = []) {
     hardcodedEnvironment,
     missingToolList
   ];
-  return [
+  const platform = detectPlatform(parsed.fileType);
+  const rawIssues = [
     ...rules.flatMap((rule) => rule(parsed.rawContent, parsed.filePath)),
     ...pluginRules.flatMap((rule) => rule(parsed.rawContent, parsed.filePath))
   ].filter((issue) => config.rules[issue.ruleId] !== "off");
+  return applyPlatformOverrides(rawIssues, platform);
 }
 
 // ../../node_modules/zod/v3/external.js

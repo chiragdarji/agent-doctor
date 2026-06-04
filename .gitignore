@@ -31,6 +31,9 @@ coverage/
 tmp/
 temp/
 
+# VS Code extension packaging artifacts
+*.vsix
+
 # Lock files — commit package-lock.json, not yarn/pnpm
 yarn.lock
 pnpm-lock.yaml
