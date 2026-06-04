@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import { Command } from 'commander';
-import { resolve, relative, dirname, join, basename } from 'node:path';
+import { resolve, relative, dirname, join, basename, extname } from 'node:path';
 import { existsSync, watch as fsWatch } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
@@ -20,7 +20,7 @@ import { formatReadinessReport } from './output/readiness-reporter.js';
 import { formatOrgReport, formatOrgReportJson } from './output/org-reporter.js';
 import { runHistory } from './analyser/history.js';
 import { formatHistory, formatHistoryJson } from './output/history-reporter.js';
-import { formatBadge } from './output/badge.js';
+import { formatCompare, formatCompareJson } from './output/compare-reporter.js';
 import type { AnalysisResult, Severity } from './types.js';
 import type { InitType } from './init.js';
 
@@ -37,7 +37,7 @@ program
   .argument('[file]', 'Path to the instruction file to analyse')
   .option('--all', 'Discover and analyse all instruction files in the project')
   .option('--fail-on <severity>', 'Exit with code 1 if any issue meets this severity', 'critical')
-  .option('--format <format>', 'Output format: text, json, or badge', 'text')
+  .option('--format <format>', 'Output format: text or json', 'text')
   .option('--structural-only', 'Skip semantic layer (no API key required)')
   .option(
     '--model <id>',
@@ -52,6 +52,7 @@ program
   .option('--readiness-report', 'Print a detailed per-dimension readiness breakdown instead of the standard issue list')
   .option('--history [n]', 'Show score trend for the last n git commits (default: 10)')
   .option('--org [dir]', 'Org-level health dashboard — recursively discovers all instruction files under dir (default: cwd)')
+  .option('--compare <ref>', 'Compare current file against a git ref (HEAD~1) or another file path')
   .option('--mcp', 'Start MCP server mode (v0.2)')
   .action(async (file: string | undefined, opts: {
     all?: boolean;
@@ -68,6 +69,7 @@ program
     readinessReport?: boolean;
     history?: string | boolean;
     org?: string | boolean;
+    compare?: string;
     mcp?: boolean;
   }) => {
     if (opts.init) {
@@ -100,6 +102,107 @@ program
       const child = spawn(process.execPath, [mcpEntry], { stdio: 'inherit' });
       child.on('exit', (code) => process.exit(code ?? 0));
       return;
+    }
+
+    if (opts.compare !== undefined) {
+      if (file === undefined) {
+        process.stderr.write(chalk.red('Error: --compare requires a file argument\n'));
+        process.exit(2);
+      }
+      const cwd = process.cwd();
+      const absFile = resolve(cwd, file);
+      const config = loadConfig(cwd);
+      if (opts.model !== undefined && opts.model.length > 0) config.model = opts.model;
+
+      // Determine if the ref is an existing file path or a git ref
+      const isFilePath = existsSync(opts.compare);
+
+      let beforeResult: AnalysisResult;
+      let beforeLabel: string;
+
+      if (isFilePath) {
+        // Compare two files
+        const compareConfig = { ...config, layers: ['structural'] as typeof config.layers };
+        try {
+          beforeResult = await analyse(resolve(cwd, opts.compare), compareConfig);
+        } catch (err) {
+          process.stderr.write(`Error analysing ${opts.compare}: ${String(err)}\n`);
+          process.exit(2);
+        }
+        beforeLabel = opts.compare;
+      } else {
+        // Compare against a git ref — use git show to get the historical content
+        const { execFileSync } = await import('node:child_process');
+        const fileDir = dirname(absFile);
+
+        let gitRoot: string;
+        try {
+          gitRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+            encoding: 'utf8',
+            cwd: fileDir,
+          }).trim();
+        } catch {
+          process.stderr.write('Error: --compare with a git ref requires a git repository\n');
+          process.exit(2);
+        }
+
+        const gitRelPath = relative(gitRoot, absFile);
+        let rawContent: string;
+        try {
+          rawContent = execFileSync('git', ['show', `${opts.compare}:${gitRelPath}`], {
+            encoding: 'utf8',
+            cwd: gitRoot,
+          });
+        } catch {
+          process.stderr.write(`Error: could not read "${opts.compare}:${gitRelPath}" from git. Check that the ref is valid.\n`);
+          process.exit(2);
+        }
+
+        // Parse and analyse the historical content in-memory (structural only)
+        const { parseMarkdownContent, parseMdcContent } = await import('./parser/index.js');
+        const { runStructuralAnalysis } = await import('./analyser/structural.js');
+        const { calculateScore, calculateGrade, computeReadiness } = await import('./analyser/index.js');
+
+        const isMdc = extname(file).toLowerCase() === '.mdc';
+        const structuralConfig = { ...config, layers: ['structural'] as typeof config.layers };
+
+        const parsed = isMdc
+          ? parseMdcContent(file, rawContent)
+          : parseMarkdownContent(file, rawContent);
+        const issues = runStructuralAnalysis(parsed, structuralConfig, []);
+        const score = calculateScore(issues);
+        const { readinessScore, readinessDimensions } = computeReadiness(issues);
+
+        beforeResult = {
+          file: absFile,
+          score,
+          grade: calculateGrade(score),
+          issues,
+          tokenCount: parsed.tokenCount,
+          analysedAt: new Date().toISOString(),
+          layers: ['structural'],
+          readinessScore,
+          readinessDimensions,
+        };
+        beforeLabel = opts.compare;
+      }
+
+      // Analyse the current (after) file — structural only for speed and symmetry
+      const afterConfig = { ...config, layers: ['structural'] as typeof config.layers };
+      let afterResult: AnalysisResult;
+      try {
+        afterResult = await analyse(absFile, afterConfig);
+      } catch (err) {
+        process.stderr.write(`Error analysing ${file}: ${String(err)}\n`);
+        process.exit(2);
+      }
+
+      if (opts.format === 'json') {
+        process.stdout.write(formatCompareJson(beforeResult, afterResult, beforeLabel, file) + '\n');
+      } else {
+        process.stdout.write(formatCompare(beforeResult, afterResult, beforeLabel, file) + '\n');
+      }
+      process.exit(0);
     }
 
     if (opts.history !== undefined) {
@@ -230,9 +333,7 @@ program
     }
 
     // Output
-    if (opts.format === 'badge') {
-      process.stdout.write(formatBadge(results) + '\n');
-    } else if (opts.format === 'json') {
+    if (opts.format === 'json') {
       process.stdout.write(
         (results.length === 1
           ? formatResultJson(results[0]!)
