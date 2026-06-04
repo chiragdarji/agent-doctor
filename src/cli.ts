@@ -3,7 +3,8 @@ import { resolve, relative, dirname, join, basename } from 'node:path';
 import { existsSync, watch as fsWatch } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
-import { analyse, analyseAll } from './analyser/index.js';
+import { analyse, analyseAll, analyseCrossFile } from './analyser/index.js';
+import { parseFile } from './parser/index.js';
 import { loadConfig } from './config.js';
 import { discoverFiles } from './discovery.js';
 import { applyFixes } from './fixer.js';
@@ -119,6 +120,19 @@ program
       } catch (err) {
         process.stderr.write(`Error during analysis: ${String(err)}\n`);
         process.exit(2);
+      }
+      // Cross-file conflict detection — semantic only, requires 2+ files
+      if (discovered.length >= 2 && config.layers.includes('semantic')) {
+        try {
+          const fileContents = discovered.map((fp) => {
+            const parsed = parseFile(fp);
+            return { filePath: fp, content: parsed.content };
+          });
+          const crossResult = await analyseCrossFile(fileContents, config);
+          if (crossResult !== null) results.push(crossResult);
+        } catch (err) {
+          process.stderr.write(`Cross-file analysis error: ${String(err)}\n`);
+        }
       }
     } else if (file !== undefined) {
       const filePath = resolve(cwd, file);

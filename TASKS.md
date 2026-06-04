@@ -38,12 +38,12 @@ Each task is scoped to a single commit. Check the box and push when done.
 - [x] **2C.5** Add tests in `tests/init.test.ts` — verify each template type produces zero structural issues when run through `runStructuralAnalysis`
 
 ### 2D — `cross-file-conflict` semantic rule
-- [ ] **2D.1** Re-add `cross-file-conflict` to `RuleId` in `src/types.ts` and `SEMANTIC_RULE_IDS` in `src/analyser/semantic.ts`
-- [ ] **2D.2** Create `src/analyser/multi-file-semantic.ts` — sends 2+ file contents together to the LLM with a new system prompt focused on cross-file conflicts
-- [ ] **2D.3** Add cross-file prompt to `src/analyser/semantic-prompt.ts` — define the `cross-file-conflict` rule with BAD/GOOD examples
-- [ ] **2D.4** Wire into CLI: `--all` flag already discovers multiple files — feed them to `multiFileSemantics()` after individual analysis
-- [ ] **2D.5** Wire into MCP server: `analyse_agent_file` with `layers: ["semantic"]` on multiple files triggers cross-file check
-- [ ] **2D.6** Add tests in `tests/multi-file-semantic.test.ts` — injected mock client, conflict detected and none detected cases
+- [x] **2D.1** Re-add `cross-file-conflict` to `RuleId` in `src/types.ts` and `SEMANTIC_RULE_IDS` in `src/analyser/semantic.ts`
+- [x] **2D.2** Create `src/analyser/multi-file-semantic.ts` — sends 2+ file contents together to the LLM with a new system prompt focused on cross-file conflicts
+- [x] **2D.3** Add cross-file prompt to `src/analyser/semantic-prompt.ts` — define the `cross-file-conflict` rule with BAD/GOOD examples
+- [x] **2D.4** Wire into CLI: `--all` flag already discovers multiple files — feed them to `multiFileSemantics()` after individual analysis
+- [x] **2D.5** Wire into MCP server: `analyse_agent_file` with `layers: ["semantic"]` on multiple files triggers cross-file check
+- [x] **2D.6** Add tests in `tests/multi-file-semantic.test.ts` — injected mock client, conflict detected and none detected cases
 
 ### 2E — GitHub Actions native action
 - [x] **2E.1** Create `action.yml` in repo root — defines `inputs` (files, fail-on, model, anthropic-api-key, openai-api-key) and `outputs` (score, grade, issues-count)

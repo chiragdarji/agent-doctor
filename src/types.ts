@@ -3,7 +3,7 @@ export type Severity = 'critical' | 'warning' | 'suggestion';
 export type Grade = 'A' | 'B' | 'C' | 'D' | 'F';
 
 export type RuleId =
-  // Semantic rules
+  // Semantic rules (single-file)
   | 'decision-loop'
   | 'vague-boundary'
   | 'tool-mismatch'
@@ -14,6 +14,8 @@ export type RuleId =
   | 'over-permissive'
   | 'missing-recovery-strategy'
   | 'unobservable-outcome'
+  // Semantic rules (cross-file)
+  | 'cross-file-conflict'
   // Structural rules
   | 'missing-frontmatter'
   | 'missing-always-apply'
