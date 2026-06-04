@@ -105,7 +105,7 @@ Model         claude-sonnet-4-6
 
 `agent-doctor` runs two layers of analysis:
 
-### Layer 1 — Structural (13 rules, zero API cost)
+### Layer 1 — Structural (16 rules, zero API cost)
 
 | Rule | Severity | What it catches |
 |------|----------|----------------|
@@ -119,9 +119,12 @@ Model         claude-sonnet-4-6
 | `duplicate-heading` | warning | Same heading twice — agent can't pick which wins |
 | `legacy-format` | warning | `.cursorrules` file ignored by agent mode |
 | `token-budget-exceeded` | warning | Section over configurable token threshold (default 500) |
+| `missing-success-criteria` | warning | Task section describes work but has no completion signal ("done when", "verify by", "tests pass") |
+| `hardcoded-environment` | warning | Absolute paths (`/home/user/…`, `C:\…`) or `localhost:PORT` tie instructions to one machine |
 | `empty-section` | suggestion | Heading with no content and no children |
 | `heading-depth-skip` | suggestion | `##` → `####` jump — breaks hierarchy agents use for scoping |
 | `negation-heavy` | suggestion | >60% "don't/never/avoid" bullets — rewrite as positive |
+| `missing-tool-list` | suggestion | File references tools by name but has no section enumerating them |
 
 ### Layer 2 — Semantic (8 rules, LLM-powered)
 
