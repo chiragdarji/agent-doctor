@@ -149,6 +149,90 @@ describe('applyFixes — empty-section', () => {
 });
 
 // ---------------------------------------------------------------------------
+// missing-success-criteria
+// ---------------------------------------------------------------------------
+
+describe('applyFixes — missing-success-criteria', () => {
+  it('appends success-criteria placeholder at end of section', async () => {
+    const content = [
+      '## Implementation',
+      'Implement the payment gateway using Stripe.',
+      'Build the webhook handler for all events.',
+      'Create the order confirmation email.',
+      '',
+      '## Next Section',
+      'Some other content.',
+      '',
+    ].join('\n');
+    const fp = writeTmp('success.md', content);
+    const result = await applyFixes(fp, [makeIssue('missing-success-criteria', 1)]);
+
+    expect(result.fixed).toContain('missing-success-criteria');
+    expect(result.skipped).not.toContain('missing-success-criteria');
+    const written = readTmp(fp);
+    expect(written).toContain('✅ **Success criteria:**');
+    // Placeholder must appear before the next heading
+    const placeholderIdx = written.indexOf('✅ **Success criteria:**');
+    const nextHeadingIdx = written.indexOf('## Next Section');
+    expect(placeholderIdx).toBeLessThan(nextHeadingIdx);
+  });
+
+  it('appends at EOF when section is the last one', async () => {
+    const content = [
+      '## Implementation',
+      'Implement the payment gateway.',
+      'Build the webhook handler.',
+      'Create the confirmation email.',
+      '',
+    ].join('\n');
+    const fp = writeTmp('success-eof.md', content);
+    await applyFixes(fp, [makeIssue('missing-success-criteria', 1)]);
+    const written = readTmp(fp);
+    expect(written).toContain('✅ **Success criteria:**');
+  });
+
+  it('handles multiple sections in reverse order', async () => {
+    const content = [
+      '## Task A',
+      'Implement the auth module.',
+      'Build the token handler.',
+      'Create the session manager.',
+      '',
+      '## Task B',
+      'Deploy the service to production.',
+      'Migrate the database schema.',
+      'Update the DNS records.',
+      '',
+    ].join('\n');
+    const fp = writeTmp('multi-success.md', content);
+    await applyFixes(fp, [
+      makeIssue('missing-success-criteria', 1),
+      makeIssue('missing-success-criteria', 6),
+    ]);
+    const written = readTmp(fp);
+    const count = (written.match(/✅ \*\*Success criteria:\*\*/g) ?? []).length;
+    expect(count).toBe(2);
+  });
+
+  it('dry-run: returns preview without writing', async () => {
+    const original = [
+      '## Build',
+      'Implement the feature.',
+      'Create the tests.',
+      'Deploy to staging.',
+      '',
+    ].join('\n');
+    const fp = writeTmp('success-dry.md', original);
+    const result = await applyFixes(fp, [makeIssue('missing-success-criteria', 1)], { dryRun: true });
+
+    expect(result.fixed).toContain('missing-success-criteria');
+    expect(result.preview).toBeDefined();
+    expect(result.preview).toContain('✅ **Success criteria:**');
+    expect(readTmp(fp)).toBe(original);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // legacy-format (always skipped)
 // ---------------------------------------------------------------------------
 

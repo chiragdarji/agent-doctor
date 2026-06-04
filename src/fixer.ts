@@ -23,6 +23,7 @@ const AUTO_FIXABLE: ReadonlySet<RuleId> = new Set<RuleId>([
   'todo-in-instructions',
   'unclosed-code-block',
   'empty-section',
+  'missing-success-criteria',
 ]);
 
 // Matches every TODO-family marker agent-doctor flags
@@ -36,9 +37,10 @@ const TODO_RE = /\b(TODO|FIXME|HACK|PLACEHOLDER|XXX|TBD)\b/;
  * Applies auto-fixes for structural issues to the given file.
  *
  * Fixed rules:
- *   - `todo-in-instructions`  → replaces offending line with an HTML comment
- *   - `unclosed-code-block`   → appends closing ``` fence at end of file
- *   - `empty-section`         → inserts a placeholder line after the heading
+ *   - `todo-in-instructions`      → replaces offending line with an HTML comment
+ *   - `unclosed-code-block`       → appends closing ``` fence at end of file
+ *   - `empty-section`             → inserts a placeholder line after the heading
+ *   - `missing-success-criteria`  → appends a success-criteria blockquote at end of section
  *
  * Non-fixable rules are reported in `skipped`.
  * `legacy-format` is always skipped — the file rename must be done manually.
@@ -108,6 +110,36 @@ export async function applyFixes(
     }
     content = lines.join('\n');
     fixedSet.add('empty-section');
+  }
+
+  // ── missing-success-criteria ─────────────────────────────────────────────
+  // Append a success-criteria blockquote at the end of each flagged section,
+  // just before the next heading (or EOF). Process in reverse so earlier
+  // insertions don't shift the line numbers of later ones.
+  const successIssues = issues.filter(
+    (i): i is Issue & { line: number } =>
+      i.ruleId === 'missing-success-criteria' && i.line !== undefined,
+  );
+  if (successIssues.length > 0) {
+    const lines = content.split('\n');
+    const HEADING_RE = /^#{1,6}\s/;
+    const PLACEHOLDER =
+      '> ✅ **Success criteria:** Done when _<describe the expected outcome — e.g. "all tests pass", "the feature works as expected">_';
+    const sortedDesc = [...successIssues].sort((a, b) => b.line - a.line);
+    for (const issue of sortedDesc) {
+      const headingIdx = issue.line - 1; // 1-based → 0-based
+      // Find where this section ends: the line before the next heading or EOF
+      let insertIdx = lines.length;
+      for (let i = headingIdx + 1; i < lines.length; i++) {
+        if (HEADING_RE.test(lines[i] ?? '')) {
+          insertIdx = i;
+          break;
+        }
+      }
+      lines.splice(insertIdx, 0, '', PLACEHOLDER, '');
+    }
+    content = lines.join('\n');
+    fixedSet.add('missing-success-criteria');
   }
 
   // ── write or preview ─────────────────────────────────────────────────────

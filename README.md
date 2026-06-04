@@ -530,6 +530,7 @@ npx @chiragdarji/agent-doctor CLAUDE.md --fix --dry-run
 | `todo-in-instructions` | Replaces TODO line with `<!-- TODO removed by agent-doctor — replace with actual instruction -->` |
 | `unclosed-code-block` | Appends closing ` ``` ` fence at end of file |
 | `empty-section` | Inserts `_No content yet — add instructions here._` after the heading |
+| `missing-success-criteria` | Appends `> ✅ **Success criteria:** Done when _<describe outcome>_` at end of section |
 | `legacy-format` | Skipped — prints rename instruction; file rename must be manual |
 
 ---
