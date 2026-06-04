@@ -4,6 +4,48 @@ All notable changes to `agent-doctor` are documented here.
 
 ---
 
+## [0.8.0] — 2026-06-04
+
+### Added
+
+**`--history [n]` flag** — score trending via git:
+
+```bash
+npx @chiragdarji/agent-doctor CLAUDE.md --history
+npx @chiragdarji/agent-doctor CLAUDE.md --history 20
+npx @chiragdarji/agent-doctor CLAUDE.md --history --format json
+```
+
+- Walks the last n commits that modified the target file (default: 10)
+- Runs structural analysis at each commit snapshot — zero LLM cost
+- Outputs a table: commit hash, date, score, grade, readiness score, issue counts, and commit subject
+- `--format json` outputs a CI-friendly array for dashboard tooling
+- `runHistory(filePath, config, n)` exported from the programmatic API
+- New parser helpers: `parseMarkdownContent(filePath, rawContent)` and `parseMdcContent(filePath, rawContent)` for in-memory parsing without disk reads
+
+**Platform-aware analysis** — rule suggestions and severities adapt to the target AI platform:
+
+- `detectPlatform(fileType)` maps file type → platform (`anthropic` | `openai` | `cursor` | `gemini` | `github-copilot`)
+- Platform-specific suggestion text for: `missing-tool-list`, `missing-success-criteria`, `hardcoded-environment`, `missing-recovery-strategy`, `unobservable-outcome`
+- Severity upgrade: `missing-always-apply` is promoted from `warning` → `critical` on Cursor `.mdc` files (a missing `alwaysApply` causes silent rule skip in Cursor agent mode)
+- `detectPlatform` and `applyPlatformOverrides` exported from the programmatic API
+
+**`--org [dir]` flag** — workspace-level health dashboard:
+
+```bash
+npx @chiragdarji/agent-doctor --org
+npx @chiragdarji/agent-doctor --org ./packages
+npx @chiragdarji/agent-doctor --org --format json
+```
+
+- Recursively discovers all instruction files under the target directory (default: cwd), skipping `node_modules`, `.git`, `dist`, `build`, `.next`, `.nuxt`, `coverage`, `.turbo`, `vendor`
+- Configurable depth — `discoverOrgFiles(root, maxDepth)` defaults to 4 directory levels
+- Output: aggregate score table grouped by file type (CLAUDE.md / AGENTS.md / .mdc / …), per-dimension readiness bars (Observable / Bounded / Reversible / Tooled / Documented), compact per-file listing
+- `--format json` outputs structured data for CI dashboards: `avgScore`, `avgReadiness`, `avgDimensions`, `byType[]`, `files[]`
+- `discoverOrgFiles`, `formatOrgReport`, `formatOrgReportJson` exported from the programmatic API
+
+---
+
 ## [0.7.0] — 2026-06-04
 
 ### Added
