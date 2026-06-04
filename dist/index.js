@@ -3,20 +3,28 @@ import {
   analyse,
   analyseAll,
   analyseSemantics,
+  applyPlatformOverrides,
+  calculateGrade,
+  calculateScore,
+  computeReadiness,
   countTokens,
   createAnthropicClient,
   createClientFromConfig,
   createOpenAIClient,
   createOpenAICompatibleClient,
+  detectPlatform,
   inferProvider,
   loadConfig,
+  loadPlugins,
   parseFile,
   parseMarkdown,
+  parseMarkdownContent,
   parseMdc,
+  parseMdcContent,
   parseSections,
   resolveProvider,
   runStructuralAnalysis
-} from "./chunk-DMRYU6SC.js";
+} from "./chunk-PZKRE5FX.js";
 
 // src/fixer.ts
 import { readFileSync, writeFileSync } from "fs";
@@ -350,7 +358,7 @@ async function initFile(opts) {
 
 // src/discovery.ts
 import { existsSync as existsSync2, readdirSync } from "fs";
-import { resolve as resolve2 } from "path";
+import { resolve as resolve2, join } from "path";
 var WELL_KNOWN_FILES = [
   "CLAUDE.md",
   "AGENTS.md",
@@ -382,6 +390,48 @@ function discoverFiles(cwd = process.cwd()) {
     }
   }
   return files;
+}
+var SKIP_DIRS = /* @__PURE__ */ new Set([
+  "node_modules",
+  ".git",
+  "dist",
+  "build",
+  ".next",
+  ".nuxt",
+  "coverage",
+  ".turbo",
+  "vendor"
+]);
+function discoverOrgFiles(root = process.cwd(), maxDepth = 4) {
+  const found = /* @__PURE__ */ new Set();
+  function walk(dir, depth) {
+    if (depth > maxDepth) return;
+    for (const candidate of WELL_KNOWN_FILES) {
+      const full = resolve2(dir, candidate);
+      if (existsSync2(full)) found.add(full);
+    }
+    for (const { dir: subDir, ext } of SCANNED_DIRS) {
+      const full = resolve2(dir, subDir);
+      if (!existsSync2(full)) continue;
+      try {
+        for (const entry of readdirSync(full)) {
+          if (entry.endsWith(ext)) found.add(resolve2(full, entry));
+        }
+      } catch {
+      }
+    }
+    try {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (SKIP_DIRS.has(entry.name)) continue;
+        if (entry.isDirectory() && !entry.isSymbolicLink()) {
+          walk(join(dir, entry.name), depth + 1);
+        }
+      }
+    } catch {
+    }
+  }
+  walk(root, 0);
+  return Array.from(found);
 }
 
 // src/output/formatter.ts
@@ -501,18 +551,483 @@ function formatResultJson(result) {
 function formatResultsJson(results) {
   return JSON.stringify(results, null, 2);
 }
+
+// src/output/readiness-reporter.ts
+import chalk2 from "chalk";
+import { basename as basename2 } from "path";
+var BAR_WIDTH = 20;
+var PASS_THRESHOLD = 85;
+var WARN_THRESHOLD = 60;
+var SEP = chalk2.dim("\u2500".repeat(56));
+var DOUBLE_SEP = chalk2.dim("\u2550".repeat(56));
+var DIMENSIONS = [
+  {
+    key: "observable",
+    label: "Observable",
+    passMsg: "All task outcomes have measurable completion signals.",
+    failMsg: "Some tasks lack verifiable success criteria \u2014 the agent cannot confirm completion."
+  },
+  {
+    key: "bounded",
+    label: "Bounded",
+    passMsg: "Scope and task boundaries are well-defined.",
+    failMsg: "Scope or task boundaries are unclear \u2014 the agent may over- or under-reach."
+  },
+  {
+    key: "reversible",
+    label: "Reversible",
+    passMsg: "Risky operations are guarded with recovery guidance.",
+    failMsg: "Destructive operations lack rollback steps \u2014 failures may be unrecoverable."
+  },
+  {
+    key: "tooled",
+    label: "Tooled",
+    passMsg: "Available tools are enumerated and correctly described.",
+    failMsg: "Tool inventory is incomplete or contains inaccurate descriptions."
+  },
+  {
+    key: "documented",
+    label: "Documented",
+    passMsg: "Instructions provide sufficient context for autonomous decisions.",
+    failMsg: "Context gaps may force the agent to make uninformed assumptions."
+  }
+];
+var DIMENSION_RULES = {
+  observable: ["unobservable-outcome", "missing-success-criteria"],
+  bounded: [
+    "vague-boundary",
+    "missing-fallback",
+    "scope-bleed",
+    "hardcoded-environment",
+    "missing-success-criteria",
+    "cross-file-conflict"
+  ],
+  reversible: ["missing-recovery-strategy", "over-permissive"],
+  tooled: ["missing-tool-list", "tool-mismatch"],
+  documented: ["todo-in-instructions", "empty-section", "ambiguous-pronoun", "cross-file-conflict"]
+};
+function dimColour(score) {
+  if (score >= PASS_THRESHOLD) return chalk2.green.bold;
+  if (score >= WARN_THRESHOLD) return chalk2.yellow.bold;
+  return chalk2.red.bold;
+}
+function bar(score) {
+  const filled = Math.round(score / 100 * BAR_WIDTH);
+  return chalk2.green("\u2588".repeat(filled)) + chalk2.dim("\u2591".repeat(BAR_WIDTH - filled));
+}
+function issueBlock(issue) {
+  const icon = issue.severity === "critical" ? chalk2.red("\u25CF") : chalk2.yellow("\u25CF");
+  const loc = issue.line !== void 0 ? chalk2.dim(` line ${issue.line}`) : "";
+  return [
+    `  ${icon}  ${chalk2.bold(`[${issue.ruleId}]`)}${loc}`,
+    `      ${issue.message}`,
+    `      ${chalk2.green("\u2192")} ${issue.suggestion}`
+  ].join("\n");
+}
+function formatReadinessReport(results) {
+  if (results.length === 0) return "";
+  const parts = results.map(reportForResult);
+  if (results.length > 1) {
+    parts.push(aggregateSection(results));
+  }
+  return parts.join("\n");
+}
+function reportForResult(result) {
+  const lines = [];
+  const rd = result.readinessDimensions;
+  const isCrossFile = result.file === "<cross-file-analysis>";
+  const fileLabel = isCrossFile ? "cross-file analysis" : basename2(result.file);
+  lines.push("");
+  lines.push(chalk2.bold.underline(`Agent Readiness Report  \u2014  ${fileLabel}`));
+  lines.push(
+    `Overall Readiness  ${dimColour(result.readinessScore)(`${result.readinessScore} / 100`)}  ` + chalk2.dim(`(Health: ${result.score}/100  Grade: ${result.grade})`)
+  );
+  lines.push("");
+  for (const { key, label } of DIMENSIONS) {
+    const score = rd[key];
+    const icon = score >= PASS_THRESHOLD ? chalk2.green("\u2713") : chalk2.yellow("\u26A0");
+    const scoreStr = dimColour(score)(`${String(score).padStart(3)}/100`);
+    lines.push(`  ${icon}  ${chalk2.bold(label.padEnd(12))}  ${scoreStr}  ${bar(score)}`);
+  }
+  lines.push("");
+  for (const { key, label, passMsg, failMsg } of DIMENSIONS) {
+    const score = rd[key];
+    lines.push(SEP);
+    lines.push(dimColour(score)(`${label}  ${score}/100`));
+    if (score >= PASS_THRESHOLD) {
+      lines.push(chalk2.green(`\u2713  ${passMsg}`));
+    } else {
+      lines.push(chalk2.yellow(`\u26A0  ${failMsg}`));
+      const relevant = result.issues.filter((i) => DIMENSION_RULES[key].includes(i.ruleId));
+      if (relevant.length > 0) {
+        lines.push("");
+        lines.push(...relevant.map(issueBlock));
+      } else {
+        lines.push(chalk2.dim("  (No active issues in this dimension.)"));
+      }
+    }
+    lines.push("");
+  }
+  lines.push(SEP);
+  return lines.join("\n");
+}
+function aggregateSection(results) {
+  const lines = [];
+  const avg = (key) => Math.round(results.reduce((s, r) => s + r.readinessDimensions[key], 0) / results.length);
+  const avgReadiness = Math.round(
+    results.reduce((s, r) => s + r.readinessScore, 0) / results.length
+  );
+  lines.push(DOUBLE_SEP);
+  lines.push(chalk2.bold(`Aggregate Readiness \u2014 ${results.length} files`));
+  lines.push(`Overall  ${dimColour(avgReadiness)(`${avgReadiness} / 100`)}`);
+  lines.push("");
+  for (const { key, label } of DIMENSIONS) {
+    const score = avg(key);
+    lines.push(
+      `  ${dimColour(score)(label.padEnd(12))}  ${dimColour(score)(`${String(score).padStart(3)}/100`)}  ${bar(score)}`
+    );
+  }
+  lines.push(DOUBLE_SEP);
+  return lines.join("\n");
+}
+
+// src/analyser/history.ts
+import { execFileSync } from "child_process";
+import { extname, dirname, relative, resolve as resolve3 } from "path";
+import { execFile } from "child_process";
+import { promisify } from "util";
+var execFileAsync = promisify(execFile);
+async function runHistory(filePath, config, n = 10) {
+  const absPath = resolve3(process.cwd(), filePath);
+  const fileDir = dirname(absPath);
+  let gitRoot;
+  try {
+    gitRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+      encoding: "utf8",
+      cwd: fileDir
+    }).trim();
+  } catch {
+    throw new Error("Not a git repository \u2014 --history requires git");
+  }
+  const gitRelPath = relative(gitRoot, absPath);
+  let logOutput;
+  try {
+    logOutput = execFileSync(
+      "git",
+      ["log", "--format=%H|%ai|%s", `-n`, String(n), "--", gitRelPath],
+      { encoding: "utf8", cwd: gitRoot }
+    ).trim();
+  } catch {
+    throw new Error(`Failed to read git log for ${filePath}`);
+  }
+  if (!logOutput) return [];
+  const commits = [];
+  for (const line of logOutput.split("\n")) {
+    if (!line.trim()) continue;
+    const pipeIdx = line.indexOf("|");
+    const pipe2Idx = line.indexOf("|", pipeIdx + 1);
+    if (pipeIdx < 0 || pipe2Idx < 0) continue;
+    commits.push({
+      hash: line.slice(0, pipeIdx),
+      date: (line.slice(pipeIdx + 1, pipe2Idx).split(" ")[0] ?? "").trim(),
+      subject: line.slice(pipe2Idx + 1).trim()
+    });
+  }
+  const contents = await Promise.all(
+    commits.map(
+      ({ hash }) => execFileAsync("git", ["show", `${hash}:${gitRelPath}`], {
+        encoding: "utf8",
+        cwd: gitRoot
+      }).then(({ stdout }) => stdout).catch(() => null)
+    )
+  );
+  const isMdc = extname(filePath).toLowerCase() === ".mdc";
+  const structuralConfig = { ...config, layers: ["structural"] };
+  const entries = [];
+  for (let i = 0; i < commits.length; i++) {
+    const rawContent = contents[i];
+    if (rawContent == null) continue;
+    const { hash, date, subject } = commits[i];
+    const parsed = isMdc ? parseMdcContent(filePath, rawContent) : parseMarkdownContent(filePath, rawContent);
+    const issues = runStructuralAnalysis(parsed, structuralConfig, []);
+    const score = calculateScore(issues);
+    const { readinessScore } = computeReadiness(issues);
+    let criticalCount = 0;
+    let warningCount = 0;
+    for (const issue of issues) {
+      if (issue.severity === "critical") criticalCount++;
+      else if (issue.severity === "warning") warningCount++;
+    }
+    entries.push({
+      commit: hash.slice(0, 7),
+      date,
+      subject,
+      score,
+      grade: calculateGrade(score),
+      issueCount: issues.length,
+      criticalCount,
+      warningCount,
+      readinessScore
+    });
+  }
+  return entries;
+}
+
+// src/output/history-reporter.ts
+import chalk4 from "chalk";
+
+// src/output/colours.ts
+import chalk3 from "chalk";
+var DIM_KEYS = [
+  "observable",
+  "bounded",
+  "reversible",
+  "tooled",
+  "documented"
+];
+function avgNums(nums) {
+  if (nums.length === 0) return 100;
+  return Math.round(nums.reduce((a, b) => a + b, 0) / nums.length);
+}
+function avgDimensions(results) {
+  const dims = { observable: 100, bounded: 100, reversible: 100, tooled: 100, documented: 100 };
+  for (const key of DIM_KEYS) {
+    dims[key] = avgNums(results.map((r) => r.readinessDimensions[key]));
+  }
+  return dims;
+}
+function gradeColour2(grade) {
+  if (grade === "A") return chalk3.green(grade);
+  if (grade === "B") return chalk3.cyan(grade);
+  if (grade === "C") return chalk3.yellow(grade);
+  if (grade === "D") return chalk3.red(grade);
+  return chalk3.red.bold(grade);
+}
+function scoreColour2(score, text) {
+  const s = text ?? String(score);
+  if (score >= 85) return chalk3.green(s);
+  if (score >= 60) return chalk3.yellow(s);
+  return chalk3.red(s);
+}
+
+// src/output/history-reporter.ts
+function scoreTrend(entries) {
+  if (entries.length < 2) return "";
+  const first = entries[entries.length - 1].score;
+  const last = entries[0].score;
+  const delta = last - first;
+  if (delta > 0) return chalk4.green(` \u2191${delta}`);
+  if (delta < 0) return chalk4.red(` \u2193${Math.abs(delta)}`);
+  return chalk4.dim(" \u21920");
+}
+function formatHistory(entries, filePath) {
+  if (entries.length === 0) {
+    return chalk4.yellow(`No git history found for ${filePath}`);
+  }
+  const lines = [];
+  lines.push("");
+  lines.push(chalk4.bold(`Score history \u2014 ${filePath}`) + scoreTrend(entries));
+  lines.push("");
+  const COL = {
+    commit: 7,
+    date: 10,
+    score: 5,
+    grade: 5,
+    readiness: 9,
+    issues: 6,
+    subject: 40
+  };
+  const header = [
+    chalk4.dim("COMMIT ".padEnd(COL.commit + 1)),
+    chalk4.dim("DATE       "),
+    chalk4.dim("SCORE"),
+    chalk4.dim(" GRD"),
+    chalk4.dim(" RDNS"),
+    chalk4.dim(" ISSUES"),
+    chalk4.dim(" SUBJECT")
+  ].join("");
+  lines.push(header);
+  lines.push(chalk4.dim("\u2500".repeat(80)));
+  for (const entry of entries) {
+    const scoreStr = String(entry.score).padStart(COL.score);
+    const scoreColoured = scoreColour2(entry.score, scoreStr);
+    const issueStr = entry.criticalCount > 0 ? chalk4.red(String(entry.issueCount).padStart(COL.issues)) : entry.warningCount > 0 ? chalk4.yellow(String(entry.issueCount).padStart(COL.issues)) : chalk4.green(String(entry.issueCount).padStart(COL.issues));
+    const subjectTrunc = entry.subject.length > COL.subject ? entry.subject.slice(0, COL.subject - 1) + "\u2026" : entry.subject;
+    lines.push(
+      `${chalk4.dim(entry.commit)}  ${chalk4.dim(entry.date)}  ${scoreColoured}  ${gradeColour2(entry.grade)}  ${String(entry.readinessScore).padStart(4)}  ${issueStr}  ${chalk4.dim(subjectTrunc)}`
+    );
+  }
+  lines.push("");
+  lines.push(
+    chalk4.dim(
+      `${entries.length} commit${entries.length !== 1 ? "s" : ""} \xB7 structural analysis only`
+    )
+  );
+  lines.push("");
+  return lines.join("\n");
+}
+function formatHistoryJson(entries, filePath) {
+  return JSON.stringify({ file: filePath, history: entries }, null, 2);
+}
+
+// src/output/org-reporter.ts
+import chalk5 from "chalk";
+import { basename as basename3, relative as relative2 } from "path";
+function gradeCount(grade, count) {
+  if (count === 0) return chalk5.dim("0");
+  if (grade === "A") return chalk5.green(String(count));
+  if (grade === "B") return chalk5.cyan(String(count));
+  if (grade === "C") return chalk5.yellow(String(count));
+  return chalk5.red(String(count));
+}
+function scoreBar(score, width = 20) {
+  const filled = Math.round(score / 100 * width);
+  const bar2 = "\u2588".repeat(filled) + "\u2591".repeat(width - filled);
+  if (score >= 85) return chalk5.green(bar2);
+  if (score >= 60) return chalk5.yellow(bar2);
+  return chalk5.red(bar2);
+}
+function fileTypeLabel(filePath) {
+  const base = basename3(filePath);
+  if (/^claude\.md$/i.test(base)) return "CLAUDE.md";
+  if (/^agents\.md$/i.test(base)) return "AGENTS.md";
+  if (/^gemini\.md$/i.test(base)) return "GEMINI.md";
+  if (base.endsWith(".mdc")) return ".mdc";
+  if (base === "copilot-instructions.md") return "copilot-instructions.md";
+  return base;
+}
+function groupByType(results) {
+  const map = /* @__PURE__ */ new Map();
+  for (const r of results) {
+    const label = fileTypeLabel(r.file);
+    const group = map.get(label) ?? [];
+    group.push(r);
+    map.set(label, group);
+  }
+  return Array.from(map.entries()).map(([label, res]) => {
+    const grades = { A: 0, B: 0, C: 0, D: 0, F: 0 };
+    for (const r of res) grades[r.grade]++;
+    return {
+      label,
+      results: res,
+      avgScore: avgNums(res.map((r) => r.score)),
+      avgReadiness: avgNums(res.map((r) => r.readinessScore)),
+      avgDims: avgDimensions(res),
+      grades
+    };
+  });
+}
+function formatDimensionRow(label, score) {
+  const padded = label.padEnd(12);
+  const num = String(score).padStart(3);
+  return `  ${chalk5.dim(padded)} ${scoreBar(score, 12)} ${num}`;
+}
+function formatOrgReport(results, root) {
+  if (results.length === 0) {
+    return chalk5.yellow("No agent instruction files found in this workspace.");
+  }
+  const lines = [];
+  lines.push("");
+  lines.push(chalk5.bold(`Org Health Dashboard \u2014 ${relative2(process.cwd(), root) || "."}`));
+  lines.push(chalk5.dim(`${results.length} file${results.length !== 1 ? "s" : ""} analysed`));
+  lines.push("");
+  const groups = groupByType(results);
+  lines.push(
+    chalk5.dim(
+      `${"TYPE".padEnd(26)}${"FILES".padStart(6)}  ${"AVG SCORE".padEnd(10)}${"AVG RDNS".padEnd(10)}${"A".padStart(3)}${"B".padStart(3)}${"C".padStart(3)}${"D".padStart(3)}${"F".padStart(3)}`
+    )
+  );
+  lines.push(chalk5.dim("\u2500".repeat(72)));
+  for (const g of groups) {
+    const scoreStr = scoreColour2(g.avgScore, String(g.avgScore).padStart(3));
+    const rdnsStr = scoreColour2(g.avgReadiness, String(g.avgReadiness).padStart(3));
+    lines.push(
+      `${g.label.padEnd(26)}${String(g.results.length).padStart(6)}  ${scoreStr}${"".padEnd(7)}${rdnsStr}${"".padEnd(7)}${gradeCount("A", g.grades.A).padStart(3)}${gradeCount("B", g.grades.B).padStart(3)}${gradeCount("C", g.grades.C).padStart(3)}${gradeCount("D", g.grades.D).padStart(3)}${gradeCount("F", g.grades.F).padStart(3)}`
+    );
+  }
+  lines.push("");
+  const overall = {
+    label: "ALL",
+    results,
+    avgScore: avgNums(results.map((r) => r.score)),
+    avgReadiness: avgNums(results.map((r) => r.readinessScore)),
+    avgDims: avgDimensions(results),
+    grades: { A: 0, B: 0, C: 0, D: 0, F: 0 }
+  };
+  for (const r of results) overall.grades[r.grade]++;
+  lines.push(chalk5.bold("Overall readiness dimensions"));
+  lines.push("");
+  lines.push(formatDimensionRow("Observable", overall.avgDims.observable));
+  lines.push(formatDimensionRow("Bounded", overall.avgDims.bounded));
+  lines.push(formatDimensionRow("Reversible", overall.avgDims.reversible));
+  lines.push(formatDimensionRow("Tooled", overall.avgDims.tooled));
+  lines.push(formatDimensionRow("Documented", overall.avgDims.documented));
+  lines.push("");
+  lines.push(
+    chalk5.bold("Overall avg score: ") + scoreColour2(overall.avgScore) + chalk5.dim("  |  ") + chalk5.bold("Avg readiness: ") + scoreColour2(overall.avgReadiness)
+  );
+  lines.push("");
+  lines.push(chalk5.bold("Files"));
+  lines.push("");
+  for (const r of results) {
+    const rel = relative2(root, r.file) || basename3(r.file);
+    const scoreStr = scoreColour2(r.score, String(r.score).padStart(3));
+    const issueStr = r.issues.length === 0 ? chalk5.green("\u2713") : chalk5.yellow(`${r.issues.length} issue${r.issues.length !== 1 ? "s" : ""}`);
+    lines.push(`  ${scoreStr}  ${chalk5.dim(r.grade)}  ${issueStr.padEnd(10)}  ${rel}`);
+  }
+  lines.push("");
+  return lines.join("\n");
+}
+function formatOrgReportJson(results, root) {
+  const groups = groupByType(results);
+  const allDims = avgDimensions(results);
+  return JSON.stringify(
+    {
+      root,
+      fileCount: results.length,
+      avgScore: avgNums(results.map((r) => r.score)),
+      avgReadiness: avgNums(results.map((r) => r.readinessScore)),
+      avgDimensions: allDims,
+      byType: groups.map((g) => ({
+        type: g.label,
+        count: g.results.length,
+        avgScore: g.avgScore,
+        avgReadiness: g.avgReadiness,
+        avgDimensions: g.avgDims,
+        grades: g.grades
+      })),
+      files: results.map((r) => ({
+        file: relative2(root, r.file) || basename3(r.file),
+        score: r.score,
+        grade: r.grade,
+        readinessScore: r.readinessScore,
+        issueCount: r.issues.length
+      }))
+    },
+    null,
+    2
+  );
+}
 export {
   DEFAULT_CONFIG,
   analyse,
   analyseAll,
   analyseSemantics,
   applyFixes,
+  applyPlatformOverrides,
   countTokens,
   createAnthropicClient,
   createClientFromConfig,
   createOpenAIClient,
   createOpenAICompatibleClient,
+  detectPlatform,
   discoverFiles,
+  discoverOrgFiles,
+  formatHistory,
+  formatHistoryJson,
+  formatOrgReport,
+  formatOrgReportJson,
+  formatReadinessReport,
   formatResult,
   formatResultJson,
   formatResults,
@@ -520,11 +1035,13 @@ export {
   inferProvider,
   initFile,
   loadConfig,
+  loadPlugins,
   parseFile,
   parseMarkdown,
   parseMdc,
   parseSections,
   resolveProvider,
+  runHistory,
   runStructuralAnalysis,
   templateFor
 };

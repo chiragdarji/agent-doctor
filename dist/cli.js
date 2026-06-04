@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
 // src/cli.ts
+import chalk6 from "chalk";
 import { Command } from "commander";
-import { resolve as resolve4, relative, dirname, join, basename as basename5 } from "path";
+import { resolve as resolve6, relative as relative3, dirname as dirname2, join as join2, basename as basename7 } from "path";
 import { existsSync as existsSync3, watch as fsWatch } from "fs";
 import { fileURLToPath } from "url";
 import { spawn } from "child_process";
@@ -91,13 +92,16 @@ function detectFileType(filePath) {
 }
 function parseMarkdown(filePath) {
   const raw = readFileSync(filePath, "utf8");
-  const { content, data } = parseFrontmatter(raw);
+  return parseMarkdownContent(filePath, raw);
+}
+function parseMarkdownContent(filePath, rawContent) {
+  const { content, data } = parseFrontmatter(rawContent);
   const sections = parseSections(content);
   const hasFrontmatter = Object.keys(data).length > 0;
   return {
     filePath,
     fileType: detectFileType(filePath),
-    rawContent: raw,
+    rawContent,
     content,
     ...hasFrontmatter ? { frontmatter: data } : {},
     sections,
@@ -118,12 +122,15 @@ function parseFrontmatter2(raw) {
 }
 function parseMdc(filePath) {
   const raw = readFileSync2(filePath, "utf8");
-  const { content, data } = parseFrontmatter2(raw);
+  return parseMdcContent(filePath, raw);
+}
+function parseMdcContent(filePath, rawContent) {
+  const { content, data } = parseFrontmatter2(rawContent);
   const sections = parseSections(content);
   return {
     filePath,
     fileType: "cursor-mdc",
-    rawContent: raw,
+    rawContent,
     content,
     frontmatter: data,
     sections,
@@ -583,8 +590,79 @@ var missingToolList = (content, _filePath) => {
   ];
 };
 
+// src/analyser/platform.ts
+function detectPlatform(fileType) {
+  switch (fileType) {
+    case "claude-md":
+    case "claude-agent":
+    case "claude-command":
+      return "anthropic";
+    case "agents-md":
+      return "openai";
+    case "cursor-mdc":
+      return "cursor";
+    case "gemini-md":
+      return "gemini";
+    case "copilot-instructions":
+      return "github-copilot";
+    default:
+      return "unknown";
+  }
+}
+var PLATFORM_SUGGESTIONS = {
+  "missing-tool-list": {
+    anthropic: 'Add a "## Available Tools" section listing tools by name. Example: Bash, Read, Write, Edit, Glob, Grep, Agent.',
+    openai: 'Add a "## Tools" section listing the tool names that match your OpenAI tool definitions.',
+    cursor: "Add a section enumerating the Cursor tools your rule depends on (e.g. codebase_search, read_file, edit_file).",
+    "github-copilot": 'List the tools or extensions available to Copilot in an explicit "## Available capabilities" section.'
+  },
+  "missing-success-criteria": {
+    anthropic: 'Add a success signal after the task, e.g.: "> \u2705 Done when: all tests pass and the feature works end-to-end."',
+    openai: 'Define a completion check, e.g.: "The task is complete when the output matches the expected schema and no errors are logged."',
+    cursor: 'Add a completion note: "Verified when the file compiles, tests pass, and no diagnostics appear."'
+  },
+  "hardcoded-environment": {
+    anthropic: "Use placeholders like `<project-root>` or environment variables (e.g. `$HOME`) instead of absolute paths.",
+    openai: "Replace absolute paths with relative paths or environment variables set in your run configuration.",
+    cursor: "Use workspace-relative paths \u2014 Cursor resolves paths from the workspace root, not the OS home directory."
+  },
+  "missing-recovery-strategy": {
+    anthropic: 'Add a fallback instruction, e.g.: "If the deploy fails, run ./rollback.sh and open a GitHub issue with the error log."',
+    openai: 'Define error handling: "On failure, log the error to errors.log, revert the last change, and halt the pipeline."',
+    cursor: 'Add recovery guidance: "If the command errors, undo all file changes and report the error to the user."'
+  },
+  "unobservable-outcome": {
+    anthropic: 'Add a verification step: "Run `npm test` and confirm all tests pass before considering this done."',
+    openai: 'Add an assertion: "Verify by checking the API response matches the expected schema and status is 200."'
+  }
+};
+var PLATFORM_SEVERITY_OVERRIDES = {
+  // On Cursor, missing alwaysApply causes the rule to be silently skipped — treat as critical
+  "missing-always-apply": {
+    cursor: "critical"
+  },
+  // On Cursor, missing frontmatter prevents the file from loading at all
+  "missing-frontmatter": {
+    cursor: "critical"
+  }
+};
+function applyPlatformOverrides(issues, platform) {
+  if (platform === "unknown") return issues;
+  return issues.map((issue) => {
+    const ruleId = issue.ruleId;
+    const suggestionOverride = PLATFORM_SUGGESTIONS[ruleId]?.[platform];
+    const severityOverride = PLATFORM_SEVERITY_OVERRIDES[ruleId]?.[platform];
+    if (!suggestionOverride && !severityOverride) return issue;
+    return {
+      ...issue,
+      ...suggestionOverride ? { suggestion: suggestionOverride } : {},
+      ...severityOverride ? { severity: severityOverride } : {}
+    };
+  });
+}
+
 // src/analyser/structural.ts
-function runStructuralAnalysis(parsed, config) {
+function runStructuralAnalysis(parsed, config, pluginRules = []) {
   const rules = [
     // Format / frontmatter rules
     missingFrontmatter,
@@ -607,7 +685,12 @@ function runStructuralAnalysis(parsed, config) {
     hardcodedEnvironment,
     missingToolList
   ];
-  return rules.flatMap((rule) => rule(parsed.rawContent, parsed.filePath)).filter((issue) => config.rules[issue.ruleId] !== "off");
+  const platform = detectPlatform(parsed.fileType);
+  const rawIssues = [
+    ...rules.flatMap((rule) => rule(parsed.rawContent, parsed.filePath)),
+    ...pluginRules.flatMap((rule) => rule(parsed.rawContent, parsed.filePath))
+  ].filter((issue) => config.rules[issue.ruleId] !== "off");
+  return applyPlatformOverrides(rawIssues, platform);
 }
 
 // src/analyser/semantic.ts
@@ -1017,13 +1100,55 @@ ${rawText.slice(0, 200)}`
   return validated.data;
 }
 
+// src/plugin-loader.ts
+import { resolve } from "path";
+async function loadPlugins(pluginPaths, cwd) {
+  const rules = [];
+  for (const pluginPath of pluginPaths) {
+    const absPath = pluginPath.startsWith(".") ? resolve(cwd, pluginPath) : pluginPath;
+    try {
+      const mod = await import(absPath);
+      const collected = collectFunctions(mod);
+      if (collected.length === 0) {
+        logger.warn(`Plugin "${pluginPath}" exports no functions \u2014 skipped`);
+        continue;
+      }
+      rules.push(...collected);
+      logger.debug(`Loaded ${String(collected.length)} rule(s) from plugin "${pluginPath}"`);
+    } catch (err) {
+      logger.warn(`Failed to load plugin "${pluginPath}": ${String(err)}`);
+    }
+  }
+  return rules;
+}
+function collectFunctions(mod) {
+  const fns = [];
+  if (typeof mod["default"] === "function") {
+    fns.push(mod["default"]);
+  }
+  for (const [key, val] of Object.entries(mod)) {
+    if (key !== "default" && typeof val === "function") {
+      fns.push(val);
+    }
+  }
+  return fns;
+}
+
 // src/analyser/index.ts
 async function analyse(filePath, config) {
+  const pluginRules = await loadPlugins(config.plugins, process.cwd());
+  return _analyse(filePath, config, pluginRules);
+}
+async function analyseAll(filePaths, config) {
+  const pluginRules = await loadPlugins(config.plugins, process.cwd());
+  return Promise.all(filePaths.map((fp) => _analyse(fp, config, pluginRules)));
+}
+async function _analyse(filePath, config, pluginRules) {
   const parsed = parseFile(filePath);
   const issues = [];
   const usedLayers = [];
   if (config.layers.includes("structural")) {
-    issues.push(...runStructuralAnalysis(parsed, config));
+    issues.push(...runStructuralAnalysis(parsed, config, pluginRules));
     usedLayers.push("structural");
   }
   if (config.layers.includes("semantic")) {
@@ -1045,9 +1170,6 @@ async function analyse(filePath, config) {
     readinessScore,
     readinessDimensions
   };
-}
-async function analyseAll(filePaths, config) {
-  return Promise.all(filePaths.map((fp) => analyse(fp, config)));
 }
 async function analyseCrossFile(files, config, client) {
   if (files.length < 2) return null;
@@ -1124,7 +1246,7 @@ function computeReadiness(issues) {
 
 // src/config.ts
 import { readFileSync as readFileSync3 } from "fs";
-import { resolve } from "path";
+import { resolve as resolve2 } from "path";
 
 // src/types.ts
 var DEFAULT_CONFIG = {
@@ -1133,12 +1255,13 @@ var DEFAULT_CONFIG = {
   rules: {},
   tokenBudgetWarning: 500,
   ignore: [],
-  failOn: "critical"
+  failOn: "critical",
+  plugins: []
 };
 
 // src/config.ts
 function loadConfig(cwd = process.cwd()) {
-  const configPath = resolve(cwd, ".agentdoctor.json");
+  const configPath = resolve2(cwd, ".agentdoctor.json");
   try {
     const raw = readFileSync3(configPath, "utf8");
     const partial = JSON.parse(raw);
@@ -1160,7 +1283,7 @@ function loadConfig(cwd = process.cwd()) {
 
 // src/discovery.ts
 import { existsSync, readdirSync } from "fs";
-import { resolve as resolve2 } from "path";
+import { resolve as resolve3, join } from "path";
 var WELL_KNOWN_FILES = [
   "CLAUDE.md",
   "AGENTS.md",
@@ -1176,22 +1299,64 @@ var SCANNED_DIRS = [
 function discoverFiles(cwd = process.cwd()) {
   const files = [];
   for (const candidate of WELL_KNOWN_FILES) {
-    const full = resolve2(cwd, candidate);
+    const full = resolve3(cwd, candidate);
     if (existsSync(full)) files.push(full);
   }
   for (const { dir, ext } of SCANNED_DIRS) {
-    const full = resolve2(cwd, dir);
+    const full = resolve3(cwd, dir);
     if (!existsSync(full)) continue;
     try {
       for (const entry of readdirSync(full)) {
         if (entry.endsWith(ext)) {
-          files.push(resolve2(full, entry));
+          files.push(resolve3(full, entry));
         }
       }
     } catch {
     }
   }
   return files;
+}
+var SKIP_DIRS = /* @__PURE__ */ new Set([
+  "node_modules",
+  ".git",
+  "dist",
+  "build",
+  ".next",
+  ".nuxt",
+  "coverage",
+  ".turbo",
+  "vendor"
+]);
+function discoverOrgFiles(root = process.cwd(), maxDepth = 4) {
+  const found = /* @__PURE__ */ new Set();
+  function walk(dir, depth) {
+    if (depth > maxDepth) return;
+    for (const candidate of WELL_KNOWN_FILES) {
+      const full = resolve3(dir, candidate);
+      if (existsSync(full)) found.add(full);
+    }
+    for (const { dir: subDir, ext } of SCANNED_DIRS) {
+      const full = resolve3(dir, subDir);
+      if (!existsSync(full)) continue;
+      try {
+        for (const entry of readdirSync(full)) {
+          if (entry.endsWith(ext)) found.add(resolve3(full, entry));
+        }
+      } catch {
+      }
+    }
+    try {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (SKIP_DIRS.has(entry.name)) continue;
+        if (entry.isDirectory() && !entry.isSymbolicLink()) {
+          walk(join(dir, entry.name), depth + 1);
+        }
+      }
+    } catch {
+    }
+  }
+  walk(root, 0);
+  return Array.from(found);
 }
 
 // src/fixer.ts
@@ -1283,7 +1448,7 @@ async function applyFixes(filePath, issues, options) {
 
 // src/init.ts
 import { writeFileSync as writeFileSync2, mkdirSync, existsSync as existsSync2 } from "fs";
-import { resolve as resolve3 } from "path";
+import { resolve as resolve4 } from "path";
 import { createInterface } from "readline";
 var CLAUDE_TEMPLATE = `# Project Name \u2014 CLAUDE.md
 
@@ -1477,13 +1642,13 @@ Avoid hardcoding machine-specific paths. Use environment variables or relative p
 function targetFor(type, cwd) {
   switch (type) {
     case "claude":
-      return { path: resolve3(cwd, "CLAUDE.md") };
+      return { path: resolve4(cwd, "CLAUDE.md") };
     case "agents":
-      return { path: resolve3(cwd, "AGENTS.md") };
+      return { path: resolve4(cwd, "AGENTS.md") };
     case "cursor":
       return {
-        path: resolve3(cwd, ".cursor", "rules", "main.mdc"),
-        dir: resolve3(cwd, ".cursor", "rules")
+        path: resolve4(cwd, ".cursor", "rules", "main.mdc"),
+        dir: resolve4(cwd, ".cursor", "rules")
       };
   }
 }
@@ -1642,13 +1807,470 @@ function formatResultsJson(results) {
   return JSON.stringify(results, null, 2);
 }
 
+// src/output/readiness-reporter.ts
+import chalk2 from "chalk";
+import { basename as basename5 } from "path";
+var BAR_WIDTH = 20;
+var PASS_THRESHOLD = 85;
+var WARN_THRESHOLD = 60;
+var SEP = chalk2.dim("\u2500".repeat(56));
+var DOUBLE_SEP = chalk2.dim("\u2550".repeat(56));
+var DIMENSIONS = [
+  {
+    key: "observable",
+    label: "Observable",
+    passMsg: "All task outcomes have measurable completion signals.",
+    failMsg: "Some tasks lack verifiable success criteria \u2014 the agent cannot confirm completion."
+  },
+  {
+    key: "bounded",
+    label: "Bounded",
+    passMsg: "Scope and task boundaries are well-defined.",
+    failMsg: "Scope or task boundaries are unclear \u2014 the agent may over- or under-reach."
+  },
+  {
+    key: "reversible",
+    label: "Reversible",
+    passMsg: "Risky operations are guarded with recovery guidance.",
+    failMsg: "Destructive operations lack rollback steps \u2014 failures may be unrecoverable."
+  },
+  {
+    key: "tooled",
+    label: "Tooled",
+    passMsg: "Available tools are enumerated and correctly described.",
+    failMsg: "Tool inventory is incomplete or contains inaccurate descriptions."
+  },
+  {
+    key: "documented",
+    label: "Documented",
+    passMsg: "Instructions provide sufficient context for autonomous decisions.",
+    failMsg: "Context gaps may force the agent to make uninformed assumptions."
+  }
+];
+var DIMENSION_RULES = {
+  observable: ["unobservable-outcome", "missing-success-criteria"],
+  bounded: [
+    "vague-boundary",
+    "missing-fallback",
+    "scope-bleed",
+    "hardcoded-environment",
+    "missing-success-criteria",
+    "cross-file-conflict"
+  ],
+  reversible: ["missing-recovery-strategy", "over-permissive"],
+  tooled: ["missing-tool-list", "tool-mismatch"],
+  documented: ["todo-in-instructions", "empty-section", "ambiguous-pronoun", "cross-file-conflict"]
+};
+function dimColour(score) {
+  if (score >= PASS_THRESHOLD) return chalk2.green.bold;
+  if (score >= WARN_THRESHOLD) return chalk2.yellow.bold;
+  return chalk2.red.bold;
+}
+function bar(score) {
+  const filled = Math.round(score / 100 * BAR_WIDTH);
+  return chalk2.green("\u2588".repeat(filled)) + chalk2.dim("\u2591".repeat(BAR_WIDTH - filled));
+}
+function issueBlock(issue) {
+  const icon = issue.severity === "critical" ? chalk2.red("\u25CF") : chalk2.yellow("\u25CF");
+  const loc = issue.line !== void 0 ? chalk2.dim(` line ${issue.line}`) : "";
+  return [
+    `  ${icon}  ${chalk2.bold(`[${issue.ruleId}]`)}${loc}`,
+    `      ${issue.message}`,
+    `      ${chalk2.green("\u2192")} ${issue.suggestion}`
+  ].join("\n");
+}
+function formatReadinessReport(results) {
+  if (results.length === 0) return "";
+  const parts = results.map(reportForResult);
+  if (results.length > 1) {
+    parts.push(aggregateSection(results));
+  }
+  return parts.join("\n");
+}
+function reportForResult(result) {
+  const lines = [];
+  const rd = result.readinessDimensions;
+  const isCrossFile = result.file === "<cross-file-analysis>";
+  const fileLabel = isCrossFile ? "cross-file analysis" : basename5(result.file);
+  lines.push("");
+  lines.push(chalk2.bold.underline(`Agent Readiness Report  \u2014  ${fileLabel}`));
+  lines.push(
+    `Overall Readiness  ${dimColour(result.readinessScore)(`${result.readinessScore} / 100`)}  ` + chalk2.dim(`(Health: ${result.score}/100  Grade: ${result.grade})`)
+  );
+  lines.push("");
+  for (const { key, label } of DIMENSIONS) {
+    const score = rd[key];
+    const icon = score >= PASS_THRESHOLD ? chalk2.green("\u2713") : chalk2.yellow("\u26A0");
+    const scoreStr = dimColour(score)(`${String(score).padStart(3)}/100`);
+    lines.push(`  ${icon}  ${chalk2.bold(label.padEnd(12))}  ${scoreStr}  ${bar(score)}`);
+  }
+  lines.push("");
+  for (const { key, label, passMsg, failMsg } of DIMENSIONS) {
+    const score = rd[key];
+    lines.push(SEP);
+    lines.push(dimColour(score)(`${label}  ${score}/100`));
+    if (score >= PASS_THRESHOLD) {
+      lines.push(chalk2.green(`\u2713  ${passMsg}`));
+    } else {
+      lines.push(chalk2.yellow(`\u26A0  ${failMsg}`));
+      const relevant = result.issues.filter((i) => DIMENSION_RULES[key].includes(i.ruleId));
+      if (relevant.length > 0) {
+        lines.push("");
+        lines.push(...relevant.map(issueBlock));
+      } else {
+        lines.push(chalk2.dim("  (No active issues in this dimension.)"));
+      }
+    }
+    lines.push("");
+  }
+  lines.push(SEP);
+  return lines.join("\n");
+}
+function aggregateSection(results) {
+  const lines = [];
+  const avg = (key) => Math.round(results.reduce((s, r) => s + r.readinessDimensions[key], 0) / results.length);
+  const avgReadiness = Math.round(
+    results.reduce((s, r) => s + r.readinessScore, 0) / results.length
+  );
+  lines.push(DOUBLE_SEP);
+  lines.push(chalk2.bold(`Aggregate Readiness \u2014 ${results.length} files`));
+  lines.push(`Overall  ${dimColour(avgReadiness)(`${avgReadiness} / 100`)}`);
+  lines.push("");
+  for (const { key, label } of DIMENSIONS) {
+    const score = avg(key);
+    lines.push(
+      `  ${dimColour(score)(label.padEnd(12))}  ${dimColour(score)(`${String(score).padStart(3)}/100`)}  ${bar(score)}`
+    );
+  }
+  lines.push(DOUBLE_SEP);
+  return lines.join("\n");
+}
+
+// src/output/org-reporter.ts
+import chalk4 from "chalk";
+import { basename as basename6, relative } from "path";
+
+// src/output/colours.ts
+import chalk3 from "chalk";
+var DIM_KEYS = [
+  "observable",
+  "bounded",
+  "reversible",
+  "tooled",
+  "documented"
+];
+function avgNums(nums) {
+  if (nums.length === 0) return 100;
+  return Math.round(nums.reduce((a, b) => a + b, 0) / nums.length);
+}
+function avgDimensions(results) {
+  const dims = { observable: 100, bounded: 100, reversible: 100, tooled: 100, documented: 100 };
+  for (const key of DIM_KEYS) {
+    dims[key] = avgNums(results.map((r) => r.readinessDimensions[key]));
+  }
+  return dims;
+}
+function gradeColour2(grade) {
+  if (grade === "A") return chalk3.green(grade);
+  if (grade === "B") return chalk3.cyan(grade);
+  if (grade === "C") return chalk3.yellow(grade);
+  if (grade === "D") return chalk3.red(grade);
+  return chalk3.red.bold(grade);
+}
+function scoreColour2(score, text) {
+  const s = text ?? String(score);
+  if (score >= 85) return chalk3.green(s);
+  if (score >= 60) return chalk3.yellow(s);
+  return chalk3.red(s);
+}
+
+// src/output/org-reporter.ts
+function gradeCount(grade, count) {
+  if (count === 0) return chalk4.dim("0");
+  if (grade === "A") return chalk4.green(String(count));
+  if (grade === "B") return chalk4.cyan(String(count));
+  if (grade === "C") return chalk4.yellow(String(count));
+  return chalk4.red(String(count));
+}
+function scoreBar(score, width = 20) {
+  const filled = Math.round(score / 100 * width);
+  const bar2 = "\u2588".repeat(filled) + "\u2591".repeat(width - filled);
+  if (score >= 85) return chalk4.green(bar2);
+  if (score >= 60) return chalk4.yellow(bar2);
+  return chalk4.red(bar2);
+}
+function fileTypeLabel(filePath) {
+  const base = basename6(filePath);
+  if (/^claude\.md$/i.test(base)) return "CLAUDE.md";
+  if (/^agents\.md$/i.test(base)) return "AGENTS.md";
+  if (/^gemini\.md$/i.test(base)) return "GEMINI.md";
+  if (base.endsWith(".mdc")) return ".mdc";
+  if (base === "copilot-instructions.md") return "copilot-instructions.md";
+  return base;
+}
+function groupByType(results) {
+  const map = /* @__PURE__ */ new Map();
+  for (const r of results) {
+    const label = fileTypeLabel(r.file);
+    const group = map.get(label) ?? [];
+    group.push(r);
+    map.set(label, group);
+  }
+  return Array.from(map.entries()).map(([label, res]) => {
+    const grades = { A: 0, B: 0, C: 0, D: 0, F: 0 };
+    for (const r of res) grades[r.grade]++;
+    return {
+      label,
+      results: res,
+      avgScore: avgNums(res.map((r) => r.score)),
+      avgReadiness: avgNums(res.map((r) => r.readinessScore)),
+      avgDims: avgDimensions(res),
+      grades
+    };
+  });
+}
+function formatDimensionRow(label, score) {
+  const padded = label.padEnd(12);
+  const num = String(score).padStart(3);
+  return `  ${chalk4.dim(padded)} ${scoreBar(score, 12)} ${num}`;
+}
+function formatOrgReport(results, root) {
+  if (results.length === 0) {
+    return chalk4.yellow("No agent instruction files found in this workspace.");
+  }
+  const lines = [];
+  lines.push("");
+  lines.push(chalk4.bold(`Org Health Dashboard \u2014 ${relative(process.cwd(), root) || "."}`));
+  lines.push(chalk4.dim(`${results.length} file${results.length !== 1 ? "s" : ""} analysed`));
+  lines.push("");
+  const groups = groupByType(results);
+  lines.push(
+    chalk4.dim(
+      `${"TYPE".padEnd(26)}${"FILES".padStart(6)}  ${"AVG SCORE".padEnd(10)}${"AVG RDNS".padEnd(10)}${"A".padStart(3)}${"B".padStart(3)}${"C".padStart(3)}${"D".padStart(3)}${"F".padStart(3)}`
+    )
+  );
+  lines.push(chalk4.dim("\u2500".repeat(72)));
+  for (const g of groups) {
+    const scoreStr = scoreColour2(g.avgScore, String(g.avgScore).padStart(3));
+    const rdnsStr = scoreColour2(g.avgReadiness, String(g.avgReadiness).padStart(3));
+    lines.push(
+      `${g.label.padEnd(26)}${String(g.results.length).padStart(6)}  ${scoreStr}${"".padEnd(7)}${rdnsStr}${"".padEnd(7)}${gradeCount("A", g.grades.A).padStart(3)}${gradeCount("B", g.grades.B).padStart(3)}${gradeCount("C", g.grades.C).padStart(3)}${gradeCount("D", g.grades.D).padStart(3)}${gradeCount("F", g.grades.F).padStart(3)}`
+    );
+  }
+  lines.push("");
+  const overall = {
+    label: "ALL",
+    results,
+    avgScore: avgNums(results.map((r) => r.score)),
+    avgReadiness: avgNums(results.map((r) => r.readinessScore)),
+    avgDims: avgDimensions(results),
+    grades: { A: 0, B: 0, C: 0, D: 0, F: 0 }
+  };
+  for (const r of results) overall.grades[r.grade]++;
+  lines.push(chalk4.bold("Overall readiness dimensions"));
+  lines.push("");
+  lines.push(formatDimensionRow("Observable", overall.avgDims.observable));
+  lines.push(formatDimensionRow("Bounded", overall.avgDims.bounded));
+  lines.push(formatDimensionRow("Reversible", overall.avgDims.reversible));
+  lines.push(formatDimensionRow("Tooled", overall.avgDims.tooled));
+  lines.push(formatDimensionRow("Documented", overall.avgDims.documented));
+  lines.push("");
+  lines.push(
+    chalk4.bold("Overall avg score: ") + scoreColour2(overall.avgScore) + chalk4.dim("  |  ") + chalk4.bold("Avg readiness: ") + scoreColour2(overall.avgReadiness)
+  );
+  lines.push("");
+  lines.push(chalk4.bold("Files"));
+  lines.push("");
+  for (const r of results) {
+    const rel = relative(root, r.file) || basename6(r.file);
+    const scoreStr = scoreColour2(r.score, String(r.score).padStart(3));
+    const issueStr = r.issues.length === 0 ? chalk4.green("\u2713") : chalk4.yellow(`${r.issues.length} issue${r.issues.length !== 1 ? "s" : ""}`);
+    lines.push(`  ${scoreStr}  ${chalk4.dim(r.grade)}  ${issueStr.padEnd(10)}  ${rel}`);
+  }
+  lines.push("");
+  return lines.join("\n");
+}
+function formatOrgReportJson(results, root) {
+  const groups = groupByType(results);
+  const allDims = avgDimensions(results);
+  return JSON.stringify(
+    {
+      root,
+      fileCount: results.length,
+      avgScore: avgNums(results.map((r) => r.score)),
+      avgReadiness: avgNums(results.map((r) => r.readinessScore)),
+      avgDimensions: allDims,
+      byType: groups.map((g) => ({
+        type: g.label,
+        count: g.results.length,
+        avgScore: g.avgScore,
+        avgReadiness: g.avgReadiness,
+        avgDimensions: g.avgDims,
+        grades: g.grades
+      })),
+      files: results.map((r) => ({
+        file: relative(root, r.file) || basename6(r.file),
+        score: r.score,
+        grade: r.grade,
+        readinessScore: r.readinessScore,
+        issueCount: r.issues.length
+      }))
+    },
+    null,
+    2
+  );
+}
+
+// src/analyser/history.ts
+import { execFileSync } from "child_process";
+import { extname as extname2, dirname, relative as relative2, resolve as resolve5 } from "path";
+import { execFile } from "child_process";
+import { promisify } from "util";
+var execFileAsync = promisify(execFile);
+async function runHistory(filePath, config, n = 10) {
+  const absPath = resolve5(process.cwd(), filePath);
+  const fileDir = dirname(absPath);
+  let gitRoot;
+  try {
+    gitRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+      encoding: "utf8",
+      cwd: fileDir
+    }).trim();
+  } catch {
+    throw new Error("Not a git repository \u2014 --history requires git");
+  }
+  const gitRelPath = relative2(gitRoot, absPath);
+  let logOutput;
+  try {
+    logOutput = execFileSync(
+      "git",
+      ["log", "--format=%H|%ai|%s", `-n`, String(n), "--", gitRelPath],
+      { encoding: "utf8", cwd: gitRoot }
+    ).trim();
+  } catch {
+    throw new Error(`Failed to read git log for ${filePath}`);
+  }
+  if (!logOutput) return [];
+  const commits = [];
+  for (const line of logOutput.split("\n")) {
+    if (!line.trim()) continue;
+    const pipeIdx = line.indexOf("|");
+    const pipe2Idx = line.indexOf("|", pipeIdx + 1);
+    if (pipeIdx < 0 || pipe2Idx < 0) continue;
+    commits.push({
+      hash: line.slice(0, pipeIdx),
+      date: (line.slice(pipeIdx + 1, pipe2Idx).split(" ")[0] ?? "").trim(),
+      subject: line.slice(pipe2Idx + 1).trim()
+    });
+  }
+  const contents = await Promise.all(
+    commits.map(
+      ({ hash }) => execFileAsync("git", ["show", `${hash}:${gitRelPath}`], {
+        encoding: "utf8",
+        cwd: gitRoot
+      }).then(({ stdout }) => stdout).catch(() => null)
+    )
+  );
+  const isMdc = extname2(filePath).toLowerCase() === ".mdc";
+  const structuralConfig = { ...config, layers: ["structural"] };
+  const entries = [];
+  for (let i = 0; i < commits.length; i++) {
+    const rawContent = contents[i];
+    if (rawContent == null) continue;
+    const { hash, date, subject } = commits[i];
+    const parsed = isMdc ? parseMdcContent(filePath, rawContent) : parseMarkdownContent(filePath, rawContent);
+    const issues = runStructuralAnalysis(parsed, structuralConfig, []);
+    const score = calculateScore(issues);
+    const { readinessScore } = computeReadiness(issues);
+    let criticalCount = 0;
+    let warningCount = 0;
+    for (const issue of issues) {
+      if (issue.severity === "critical") criticalCount++;
+      else if (issue.severity === "warning") warningCount++;
+    }
+    entries.push({
+      commit: hash.slice(0, 7),
+      date,
+      subject,
+      score,
+      grade: calculateGrade(score),
+      issueCount: issues.length,
+      criticalCount,
+      warningCount,
+      readinessScore
+    });
+  }
+  return entries;
+}
+
+// src/output/history-reporter.ts
+import chalk5 from "chalk";
+function scoreTrend(entries) {
+  if (entries.length < 2) return "";
+  const first = entries[entries.length - 1].score;
+  const last = entries[0].score;
+  const delta = last - first;
+  if (delta > 0) return chalk5.green(` \u2191${delta}`);
+  if (delta < 0) return chalk5.red(` \u2193${Math.abs(delta)}`);
+  return chalk5.dim(" \u21920");
+}
+function formatHistory(entries, filePath) {
+  if (entries.length === 0) {
+    return chalk5.yellow(`No git history found for ${filePath}`);
+  }
+  const lines = [];
+  lines.push("");
+  lines.push(chalk5.bold(`Score history \u2014 ${filePath}`) + scoreTrend(entries));
+  lines.push("");
+  const COL = {
+    commit: 7,
+    date: 10,
+    score: 5,
+    grade: 5,
+    readiness: 9,
+    issues: 6,
+    subject: 40
+  };
+  const header = [
+    chalk5.dim("COMMIT ".padEnd(COL.commit + 1)),
+    chalk5.dim("DATE       "),
+    chalk5.dim("SCORE"),
+    chalk5.dim(" GRD"),
+    chalk5.dim(" RDNS"),
+    chalk5.dim(" ISSUES"),
+    chalk5.dim(" SUBJECT")
+  ].join("");
+  lines.push(header);
+  lines.push(chalk5.dim("\u2500".repeat(80)));
+  for (const entry of entries) {
+    const scoreStr = String(entry.score).padStart(COL.score);
+    const scoreColoured = scoreColour2(entry.score, scoreStr);
+    const issueStr = entry.criticalCount > 0 ? chalk5.red(String(entry.issueCount).padStart(COL.issues)) : entry.warningCount > 0 ? chalk5.yellow(String(entry.issueCount).padStart(COL.issues)) : chalk5.green(String(entry.issueCount).padStart(COL.issues));
+    const subjectTrunc = entry.subject.length > COL.subject ? entry.subject.slice(0, COL.subject - 1) + "\u2026" : entry.subject;
+    lines.push(
+      `${chalk5.dim(entry.commit)}  ${chalk5.dim(entry.date)}  ${scoreColoured}  ${gradeColour2(entry.grade)}  ${String(entry.readinessScore).padStart(4)}  ${issueStr}  ${chalk5.dim(subjectTrunc)}`
+    );
+  }
+  lines.push("");
+  lines.push(
+    chalk5.dim(
+      `${entries.length} commit${entries.length !== 1 ? "s" : ""} \xB7 structural analysis only`
+    )
+  );
+  lines.push("");
+  return lines.join("\n");
+}
+function formatHistoryJson(entries, filePath) {
+  return JSON.stringify({ file: filePath, history: entries }, null, 2);
+}
+
 // src/cli.ts
 var program = new Command();
-program.name("agent-doctor").description("Semantic health check for AI agent instruction files").version("0.4.0");
+program.name("agent-doctor").description("Semantic health check for AI agent instruction files").version("0.8.0");
 program.argument("[file]", "Path to the instruction file to analyse").option("--all", "Discover and analyse all instruction files in the project").option("--fail-on <severity>", "Exit with code 1 if any issue meets this severity", "critical").option("--format <format>", "Output format: text or json", "text").option("--structural-only", "Skip semantic layer (no API key required)").option(
   "--model <id>",
   "Override LLM model (e.g. gpt-4o uses OPENAI_API_KEY; claude-* uses ANTHROPIC_API_KEY)"
-).option("--fix", "Auto-fix structural issues in-place (todo-in-instructions, unclosed-code-block, empty-section, missing-success-criteria)").option("--dry-run", "Preview --fix changes without writing to disk").option("--watch", "Re-run analysis on every file save \u2014 Ctrl+C to stop (single file only)").option("--init", "Scaffold a new agent instruction file template in the current directory").option("--type <type>", "Template type for --init: claude | cursor | agents", "claude").option("--force", "Overwrite existing files without prompting (use with --init)").option("--mcp", "Start MCP server mode (v0.2)").action(async (file, opts) => {
+).option("--fix", "Auto-fix structural issues in-place (todo-in-instructions, unclosed-code-block, empty-section, missing-success-criteria)").option("--dry-run", "Preview --fix changes without writing to disk").option("--watch", "Re-run analysis on every file save \u2014 Ctrl+C to stop (single file only)").option("--init", "Scaffold a new agent instruction file template in the current directory").option("--type <type>", "Template type for --init: claude | cursor | agents", "claude").option("--force", "Overwrite existing files without prompting (use with --init)").option("--readiness-report", "Print a detailed per-dimension readiness breakdown instead of the standard issue list").option("--history [n]", "Show score trend for the last n git commits (default: 10)").option("--org [dir]", "Org-level health dashboard \u2014 recursively discovers all instruction files under dir (default: cwd)").option("--mcp", "Start MCP server mode (v0.2)").action(async (file, opts) => {
   if (opts.init) {
     const VALID_TYPES = ["claude", "cursor", "agents"];
     const cwd2 = process.cwd();
@@ -1663,7 +2285,7 @@ program.argument("[file]", "Path to the instruction file to analyse").option("--
     try {
       const result = await initFile({ type: initType, cwd: cwd2, force: opts.force ?? false });
       const verb = result.existed ? "Overwrote" : "Created";
-      const relPath = relative(cwd2, result.filePath);
+      const relPath = relative3(cwd2, result.filePath);
       process.stdout.write(`\u2705  ${verb} ${result.filePath}
 `);
       process.stdout.write(`    Run \`npx @chiragdarji/agent-doctor ${relPath}\` to validate.
@@ -1676,9 +2298,60 @@ program.argument("[file]", "Path to the instruction file to analyse").option("--
     return;
   }
   if (opts.mcp) {
-    const mcpEntry = join(dirname(fileURLToPath(import.meta.url)), "mcp-server.js");
+    const mcpEntry = join2(dirname2(fileURLToPath(import.meta.url)), "mcp-server.js");
     const child = spawn(process.execPath, [mcpEntry], { stdio: "inherit" });
     child.on("exit", (code) => process.exit(code ?? 0));
+    return;
+  }
+  if (opts.history !== void 0) {
+    if (file === void 0) {
+      process.stderr.write("--history requires a file argument, e.g.: agent-doctor CLAUDE.md --history\n");
+      process.exit(2);
+    }
+    const cwd2 = process.cwd();
+    const n = typeof opts.history === "string" ? Math.max(1, parseInt(opts.history, 10) || 10) : 10;
+    const config2 = loadConfig(cwd2);
+    try {
+      const filePath = resolve6(cwd2, file);
+      const entries = await runHistory(filePath, config2, n);
+      if (opts.format === "json") {
+        process.stdout.write(formatHistoryJson(entries, filePath) + "\n");
+      } else {
+        process.stdout.write(formatHistory(entries, filePath) + "\n");
+      }
+    } catch (err) {
+      process.stderr.write(`${String(err)}
+`);
+      process.exit(2);
+    }
+    return;
+  }
+  if (opts.org !== void 0) {
+    const cwd2 = process.cwd();
+    const orgRoot = typeof opts.org === "string" && opts.org.length > 0 ? resolve6(cwd2, opts.org) : cwd2;
+    const config2 = loadConfig(cwd2);
+    if (opts.model !== void 0 && opts.model.length > 0) config2.model = opts.model;
+    config2.layers = ["structural"];
+    if (opts.format !== "json") {
+      process.stderr.write(chalk6.dim("\u2139  --org runs structural analysis only (no LLM cost)\n"));
+    }
+    const discovered = discoverOrgFiles(orgRoot);
+    if (discovered.length === 0) {
+      process.stdout.write(chalk6.yellow("No agent instruction files found.\n"));
+      process.exit(0);
+    }
+    try {
+      const results2 = await analyseAll(discovered, config2);
+      if (opts.format === "json") {
+        process.stdout.write(formatOrgReportJson(results2, orgRoot) + "\n");
+      } else {
+        process.stdout.write(formatOrgReport(results2, orgRoot) + "\n");
+      }
+    } catch (err) {
+      process.stderr.write(`Error during org analysis: ${String(err)}
+`);
+      process.exit(2);
+    }
     return;
   }
   const cwd = process.cwd();
@@ -1720,7 +2393,7 @@ program.argument("[file]", "Path to the instruction file to analyse").option("--
       }
     }
   } else if (file !== void 0) {
-    const filePath = resolve4(cwd, file);
+    const filePath = resolve6(cwd, file);
     if (!existsSync3(filePath)) {
       process.stderr.write(`File not found: ${filePath}
 `);
@@ -1735,13 +2408,13 @@ program.argument("[file]", "Path to the instruction file to analyse").option("--
     }
   } else {
     const candidates = ["CLAUDE.md", "AGENTS.md", "GEMINI.md", ".cursorrules"];
-    const found = candidates.find((c) => existsSync3(resolve4(cwd, c)));
+    const found = candidates.find((c) => existsSync3(resolve6(cwd, c)));
     if (found === void 0) {
       program.help();
       process.exit(0);
     }
     try {
-      results = [await analyse(resolve4(cwd, found), config)];
+      results = [await analyse(resolve6(cwd, found), config)];
     } catch (err) {
       process.stderr.write(`Error analysing ${found}: ${String(err)}
 `);
@@ -1752,6 +2425,8 @@ program.argument("[file]", "Path to the instruction file to analyse").option("--
     process.stdout.write(
       (results.length === 1 ? formatResultJson(results[0]) : formatResultsJson(results)) + "\n"
     );
+  } else if (opts.readinessReport) {
+    process.stdout.write(formatReadinessReport(results) + "\n");
   } else {
     process.stdout.write(
       (results.length === 1 ? formatResult(results[0]) : formatResults(results)) + "\n"
@@ -1768,7 +2443,7 @@ program.argument("[file]", "Path to the instruction file to analyse").option("--
       process.exit(2);
     }
     process.stdout.write(`
-\u{1F441}  Watching ${basename5(watchTarget)} for changes\u2026 (Ctrl+C to stop)
+\u{1F441}  Watching ${basename7(watchTarget)} for changes\u2026 (Ctrl+C to stop)
 `);
     let debounce;
     fsWatch(watchTarget, () => {
@@ -1785,7 +2460,7 @@ ${"\u2500".repeat(44)}
           try {
             const refreshed = await analyse(watchTarget, config);
             process.stdout.write(
-              opts.format === "json" ? formatResultJson(refreshed) + "\n" : formatResult(refreshed) + "\n"
+              opts.format === "json" ? formatResultJson(refreshed) + "\n" : opts.readinessReport ? formatReadinessReport([refreshed]) + "\n" : formatResult(refreshed) + "\n"
             );
           } catch (err) {
             process.stderr.write(`Error re-analysing: ${String(err)}
