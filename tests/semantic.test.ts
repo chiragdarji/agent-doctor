@@ -170,6 +170,51 @@ describe('analyseSemantics', () => {
     expect(issues).toEqual([]);
   });
 
+  it('accepts missing-recovery-strategy as a valid ruleId', async () => {
+    const response = JSON.stringify([
+      {
+        ruleId: 'missing-recovery-strategy',
+        severity: 'warning',
+        message: 'Deploy step has no rollback guidance',
+        suggestion: 'Add: "If deploy fails, run ./rollback.sh"',
+        context: 'Run the deploy script when the feature is complete.',
+      },
+    ]);
+    const issues = await analyseSemantics('# Deploy\nRun the deploy script.', 'CLAUDE.md', DEFAULT_CONFIG, mockClient(response));
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.ruleId).toBe('missing-recovery-strategy');
+    expect(issues[0]!.severity).toBe('warning');
+  });
+
+  it('returns [] for missing-recovery-strategy when no destructive ops are present', async () => {
+    const issues = await analyseSemantics('# Style\nUse TypeScript.', 'CLAUDE.md', DEFAULT_CONFIG, mockClient('[]'));
+    expect(issues).toEqual([]);
+  });
+
+  it('accepts unobservable-outcome as a valid ruleId', async () => {
+    const response = JSON.stringify([
+      {
+        ruleId: 'unobservable-outcome',
+        severity: 'warning',
+        message: 'No acceptance criteria for the payment integration task',
+        suggestion: 'Add: "Verify by running npm test -- payment and confirming all tests pass"',
+        context: 'Implement the payment gateway integration.',
+      },
+    ]);
+    const issues = await analyseSemantics('# Tasks\nImplement the payment gateway.', 'CLAUDE.md', DEFAULT_CONFIG, mockClient(response));
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.ruleId).toBe('unobservable-outcome');
+    expect(issues[0]!.severity).toBe('warning');
+  });
+
+  it('returns [] for unobservable-outcome when task has explicit verification step', async () => {
+    const issues = await analyseSemantics(
+      '# Tasks\nImplement payment gateway. Verify by running npm test.',
+      'CLAUDE.md', DEFAULT_CONFIG, mockClient('[]'),
+    );
+    expect(issues).toEqual([]);
+  });
+
   it('uses the model from config when creating the request', async () => {
     const client = mockClient('[]');
     await analyseSemantics('# Test\nContent', 'CLAUDE.md', { ...DEFAULT_CONFIG, model: 'claude-opus-4-6' }, client);
