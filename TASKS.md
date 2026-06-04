@@ -23,12 +23,12 @@ Each task is scoped to a single commit. Check the box and push when done.
 > Goal: features that directly improve the write-test-fix loop for agent authors.
 
 ### 2A — `--watch` mode
-- [ ] **2A.1** Add `--watch` flag to CLI (`src/cli.ts`) — use `fs.watch` to re-run analysis on file change; print a clear "File changed, re-analysing…" header between runs
-- [ ] **2A.2** Add tests for watch mode in `tests/cli.test.ts` (mock `fs.watch`, verify re-run triggers)
+- [x] **2A.1** Add `--watch` flag to CLI (`src/cli.ts`) — use `fs.watch` to re-run analysis on file change; print a clear "File changed, re-analysing…" header between runs
+- [x] **2A.2** Add tests for watch mode in `tests/cli-watch.test.ts` (re-analysis picks up changes, readiness updates)
 
 ### 2B — Auto-fix for `missing-success-criteria`
-- [ ] **2B.1** Implement fix in `src/fixer.ts` — append `> ✅ Success criteria: done when <describe expected outcome>` blockquote after the flagged section heading
-- [ ] **2B.2** Add tests to `tests/fixer.test.ts` — dry-run preview + actual write for `missing-success-criteria`
+- [x] **2B.1** Implement fix in `src/fixer.ts` — append `> ✅ Success criteria: done when <describe expected outcome>` blockquote at end of section
+- [x] **2B.2** Add tests to `tests/fixer.test.ts` — dry-run preview + actual write for `missing-success-criteria`
 
 ### 2C — `--init` scaffold generator
 - [ ] **2C.1** Implement `--init` flag in CLI — writes a well-structured `CLAUDE.md` template to CWD that scores A out of the box on all 16 structural rules
@@ -46,9 +46,9 @@ Each task is scoped to a single commit. Check the box and push when done.
 - [ ] **2D.6** Add tests in `tests/multi-file-semantic.test.ts` — injected mock client, conflict detected and none detected cases
 
 ### 2E — GitHub Actions native action
-- [ ] **2E.1** Create `action.yml` in repo root — defines `inputs` (files, fail-on, model, anthropic-api-key, openai-api-key) and `outputs` (score, grade, issues-count)
-- [ ] **2E.2** Create `action-entrypoint.sh` or Node action runner that calls `dist/cli.js` and sets output variables
-- [ ] **2E.3** Update README GitHub Actions section to show the `uses: chiragdarji/agent-doctor@v1` syntax
+- [x] **2E.1** Create `action.yml` in repo root — defines `inputs` (files, fail-on, model, anthropic-api-key, openai-api-key) and `outputs` (score, grade, issues-count)
+- [x] **2E.2** Create `action-runner.js` (node20 entrypoint) that calls `dist/cli.js` and sets GITHUB_OUTPUT variables
+- [x] **2E.3** Update README GitHub Actions section to show the `uses: chiragdarji/agent-doctor@v1` syntax
 
 ---
 
