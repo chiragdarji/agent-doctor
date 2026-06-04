@@ -126,7 +126,7 @@ Model         claude-sonnet-4-6
 | `negation-heavy` | suggestion | >60% "don't/never/avoid" bullets — rewrite as positive |
 | `missing-tool-list` | suggestion | File references tools by name but has no section enumerating them |
 
-### Layer 2 — Semantic (8 rules, LLM-powered)
+### Layer 2 — Semantic (10 rules, LLM-powered)
 
 | Rule | Severity | What it catches |
 |------|----------|----------------|
@@ -137,6 +137,8 @@ Model         claude-sonnet-4-6
 | `missing-fallback` | warning | Conditional with no else/default branch |
 | `scope-bleed` | warning | Rule intended for one context leaks into all contexts |
 | `over-permissive` | warning | Tool granted with no usage constraint |
+| `missing-recovery-strategy` | warning | Destructive operation (deploy, delete, migrate) with no rollback or error handling |
+| `unobservable-outcome` | warning | Task described with no way to verify it completed correctly |
 | `ambiguous-pronoun` | suggestion | "it", "they", "this" with no clear referent |
 
 ---
