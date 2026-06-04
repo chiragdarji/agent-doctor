@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import { basename, relative } from 'node:path';
-import { avgNums, avgDimensions, gradeColour, scoreColour } from './colours.js';
+import { avgNums, avgDimensions, scoreColour } from './colours.js';
 import type { AnalysisResult, Grade, ReadinessDimensions } from '../types.js';
 
 interface FileGroup {

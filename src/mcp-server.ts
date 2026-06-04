@@ -28,7 +28,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { analyse, analyseCrossFile, computeReadiness } from './analyser/index.js';
+import { analyse, computeReadiness } from './analyser/index.js';
 import { analyseSemantics } from './analyser/semantic.js';
 import {
   createAnthropicClient,
