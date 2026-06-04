@@ -20,6 +20,6 @@ export function parseFile(filePath: string): ParsedFile {
   return parseMarkdown(filePath);
 }
 
-export { parseMarkdown } from './markdown.js';
-export { parseMdc } from './mdc.js';
+export { parseMarkdown, parseMarkdownContent } from './markdown.js';
+export { parseMdc, parseMdcContent } from './mdc.js';
 export { parseSections } from './sections.js';

@@ -17,6 +17,9 @@ export { analyseSemantics } from './analyser/semantic.js';
 export { createAnthropicClient, createOpenAIClient, createOpenAICompatibleClient, createClientFromConfig, inferProvider, resolveProvider } from './analyser/llm-client.js';
 export { formatResult, formatResults, formatResultJson, formatResultsJson } from './output/formatter.js';
 export { formatReadinessReport } from './output/readiness-reporter.js';
+export { runHistory } from './analyser/history.js';
+export { formatHistory, formatHistoryJson } from './output/history-reporter.js';
+export type { HistoryEntry } from './analyser/history.js';
 export { countTokens } from './tokens.js';
 
 export type {

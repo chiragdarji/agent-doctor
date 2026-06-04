@@ -16,6 +16,8 @@ import {
   formatResultsJson,
 } from './output/formatter.js';
 import { formatReadinessReport } from './output/readiness-reporter.js';
+import { runHistory } from './analyser/history.js';
+import { formatHistory, formatHistoryJson } from './output/history-reporter.js';
 import type { AnalysisResult, Severity } from './types.js';
 import type { InitType } from './init.js';
 
@@ -45,6 +47,7 @@ program
   .option('--type <type>', 'Template type for --init: claude | cursor | agents', 'claude')
   .option('--force', 'Overwrite existing files without prompting (use with --init)')
   .option('--readiness-report', 'Print a detailed per-dimension readiness breakdown instead of the standard issue list')
+  .option('--history [n]', 'Show score trend for the last n git commits (default: 10)', '10')
   .option('--mcp', 'Start MCP server mode (v0.2)')
   .action(async (file: string | undefined, opts: {
     all?: boolean;
@@ -59,6 +62,7 @@ program
     type: string;
     force?: boolean;
     readinessReport?: boolean;
+    history?: string;
     mcp?: boolean;
   }) => {
     if (opts.init) {
@@ -90,6 +94,29 @@ program
       const mcpEntry = join(dirname(fileURLToPath(import.meta.url)), 'mcp-server.js');
       const child = spawn(process.execPath, [mcpEntry], { stdio: 'inherit' });
       child.on('exit', (code) => process.exit(code ?? 0));
+      return;
+    }
+
+    if (opts.history !== undefined) {
+      if (file === undefined) {
+        process.stderr.write('--history requires a file argument, e.g.: agent-doctor CLAUDE.md --history\n');
+        process.exit(2);
+      }
+      const cwd = process.cwd();
+      const n = Math.max(1, parseInt(opts.history, 10) || 10);
+      const config = loadConfig(cwd);
+      try {
+        const filePath = resolve(cwd, file);
+        const entries = await runHistory(filePath, config, n);
+        if (opts.format === 'json') {
+          process.stdout.write(formatHistoryJson(entries, filePath) + '\n');
+        } else {
+          process.stdout.write(formatHistory(entries, filePath) + '\n');
+        }
+      } catch (err) {
+        process.stderr.write(`${String(err)}\n`);
+        process.exit(2);
+      }
       return;
     }
 

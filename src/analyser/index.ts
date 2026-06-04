@@ -115,7 +115,7 @@ export async function analyseCrossFile(
   };
 }
 
-function calculateScore(issues: Issue[]): number {
+export function calculateScore(issues: Issue[]): number {
   const deductions: Record<Severity, number> = {
     critical: 20,
     warning: 10,
@@ -126,7 +126,7 @@ function calculateScore(issues: Issue[]): number {
   return Math.max(0, 100 - total);
 }
 
-function calculateGrade(score: number): Grade {
+export function calculateGrade(score: number): Grade {
   if (score >= 90) return 'A';
   if (score >= 75) return 'B';
   if (score >= 60) return 'C';

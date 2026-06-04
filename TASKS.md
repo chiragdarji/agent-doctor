@@ -82,9 +82,9 @@ Each task is scoped to a single commit. Check the box and push when done.
 > Goal: make agent-doctor smarter over time.
 
 ### 4A — Score trending via git
-- [ ] **4A.1** Implement `--history [n]` flag — walks last n git commits, runs structural analysis at each, outputs score trend table
-- [ ] **4A.2** Add `--history --format json` for CI integration
-- [ ] **4A.3** Add tests using a fixture git repo
+- [x] **4A.1** Implement `--history [n]` flag — walks last n git commits, runs structural analysis at each, outputs score trend table
+- [x] **4A.2** Add `--history --format json` for CI integration
+- [x] **4A.3** Add tests using a fixture git repo
 
 ### 4B — Model-aware analysis
 - [ ] **4B.1** Detect which AI platform the file targets from filename/content (CLAUDE.md → Anthropic, AGENTS.md → OpenAI, .mdc → Cursor)
