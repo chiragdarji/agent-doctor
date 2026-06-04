@@ -87,9 +87,9 @@ Each task is scoped to a single commit. Check the box and push when done.
 - [x] **4A.3** Add tests using a fixture git repo
 
 ### 4B — Model-aware analysis
-- [ ] **4B.1** Detect which AI platform the file targets from filename/content (CLAUDE.md → Anthropic, AGENTS.md → OpenAI, .mdc → Cursor)
-- [ ] **4B.2** Adjust rule sensitivities and suggestions based on target platform (e.g. `alwaysApply` frontmatter is Cursor-specific, not relevant for CLAUDE.md)
-- [ ] **4B.3** Add platform-specific suggestions to issue messages where applicable
+- [x] **4B.1** Detect which AI platform the file targets from filename/content (CLAUDE.md → Anthropic, AGENTS.md → OpenAI, .mdc → Cursor)
+- [x] **4B.2** Adjust rule sensitivities and suggestions based on target platform (e.g. `alwaysApply` frontmatter is Cursor-specific, not relevant for CLAUDE.md)
+- [x] **4B.3** Add platform-specific suggestions to issue messages where applicable
 
 ### 4C — Org-level health dashboard
 - [ ] **4C.1** Implement `--org` flag — discovers all instruction files across a local monorepo or multi-repo workspace

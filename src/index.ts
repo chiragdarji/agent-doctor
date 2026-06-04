@@ -18,6 +18,8 @@ export { createAnthropicClient, createOpenAIClient, createOpenAICompatibleClient
 export { formatResult, formatResults, formatResultJson, formatResultsJson } from './output/formatter.js';
 export { formatReadinessReport } from './output/readiness-reporter.js';
 export { runHistory } from './analyser/history.js';
+export { detectPlatform, applyPlatformOverrides } from './analyser/platform.js';
+export type { TargetPlatform } from './analyser/platform.js';
 export { formatHistory, formatHistoryJson } from './output/history-reporter.js';
 export type { HistoryEntry } from './analyser/history.js';
 export { countTokens } from './tokens.js';

@@ -16,11 +16,13 @@ import {
   hardcodedEnvironment,
   missingToolList,
 } from '../rules/structural/index.js';
+import { detectPlatform, applyPlatformOverrides } from './platform.js';
 import type { Config, Issue, ParsedFile, PluginRule, StructuralRule } from '../types.js';
 
 /**
  * Runs all structural rules (built-in + optional plugin rules) against a parsed file.
  * Rules disabled via `config.rules[ruleId] === 'off'` are filtered out.
+ * Issues are enriched with platform-specific suggestions based on the file type.
  */
 export function runStructuralAnalysis(
   parsed: ParsedFile,
@@ -53,8 +55,11 @@ export function runStructuralAnalysis(
   // Pass rawContent so frontmatter-aware rules (missing-frontmatter, missing-always-apply)
   // can inspect the full file, while section-based rules parse from the raw text safely
   // (frontmatter lines don't match the heading regex so they're treated as preamble).
-  return [
+  const platform = detectPlatform(parsed.fileType);
+  const rawIssues: Issue[] = [
     ...rules.flatMap((rule) => rule(parsed.rawContent, parsed.filePath)),
     ...pluginRules.flatMap((rule) => rule(parsed.rawContent, parsed.filePath)),
   ].filter((issue) => config.rules[issue.ruleId] !== 'off');
+
+  return applyPlatformOverrides(rawIssues, platform);
 }
