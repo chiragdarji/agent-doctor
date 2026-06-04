@@ -92,9 +92,9 @@ Each task is scoped to a single commit. Check the box and push when done.
 - [x] **4B.3** Add platform-specific suggestions to issue messages where applicable
 
 ### 4C — Org-level health dashboard
-- [ ] **4C.1** Implement `--org` flag — discovers all instruction files across a local monorepo or multi-repo workspace
-- [ ] **4C.2** Output aggregate readiness scores by file type and dimension
-- [ ] **4C.3** Add `--format json` output for dashboard tooling
+- [x] **4C.1** Implement `--org` flag — discovers all instruction files across a local monorepo or multi-repo workspace
+- [x] **4C.2** Output aggregate readiness scores by file type and dimension
+- [x] **4C.3** Add `--format json` output for dashboard tooling
 
 ---
 
@@ -115,4 +115,4 @@ Types: `docs` · `feat` · `fix` · `test` · `refactor` · `chore`
 
 ---
 
-_Last updated: 2026-06-04 — Phase 1 complete, Phase 2 complete, Phase 3A+3B+3C(code) complete; 3C.5 (Marketplace publish) pending_
+_Last updated: 2026-06-04 — Phase 1 complete, Phase 2 complete, Phase 3 complete (3C.5 Marketplace publish pending), Phase 4A+4B+4C complete_

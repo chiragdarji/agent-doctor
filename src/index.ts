@@ -10,7 +10,7 @@ export type { FixResult } from './fixer.js';
 export { initFile, templateFor } from './init.js';
 export type { InitType, InitOptions, InitResult } from './init.js';
 export { loadConfig } from './config.js';
-export { discoverFiles } from './discovery.js';
+export { discoverFiles, discoverOrgFiles } from './discovery.js';
 export { parseFile, parseMarkdown, parseMdc, parseSections } from './parser/index.js';
 export { runStructuralAnalysis } from './analyser/structural.js';
 export { analyseSemantics } from './analyser/semantic.js';
@@ -21,6 +21,7 @@ export { runHistory } from './analyser/history.js';
 export { detectPlatform, applyPlatformOverrides } from './analyser/platform.js';
 export type { TargetPlatform } from './analyser/platform.js';
 export { formatHistory, formatHistoryJson } from './output/history-reporter.js';
+export { formatOrgReport, formatOrgReportJson } from './output/org-reporter.js';
 export type { HistoryEntry } from './analyser/history.js';
 export { countTokens } from './tokens.js';
 

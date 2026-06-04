@@ -1,5 +1,5 @@
-import { existsSync, readdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readdirSync, statSync } from 'node:fs';
+import { resolve, join } from 'node:path';
 
 const WELL_KNOWN_FILES = [
   'CLAUDE.md',
@@ -44,4 +44,71 @@ export function discoverFiles(cwd: string = process.cwd()): string[] {
   }
 
   return files;
+}
+
+const SKIP_DIRS = new Set([
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  '.next',
+  '.nuxt',
+  'coverage',
+  '.turbo',
+  'vendor',
+]);
+
+/**
+ * Recursively discovers agent instruction files across a workspace or monorepo.
+ * Walks up to `maxDepth` directory levels, skipping common non-source directories.
+ *
+ * @param root     - Root directory to walk from (defaults to process.cwd())
+ * @param maxDepth - Maximum directory depth to recurse (default: 4)
+ */
+export function discoverOrgFiles(
+  root: string = process.cwd(),
+  maxDepth: number = 4,
+): string[] {
+  const found = new Set<string>();
+
+  function walk(dir: string, depth: number): void {
+    if (depth > maxDepth) return;
+
+    // Pick up well-known files at this level
+    for (const candidate of WELL_KNOWN_FILES) {
+      const full = resolve(dir, candidate);
+      if (existsSync(full)) found.add(full);
+    }
+
+    // Scan standard subdirectories at this level
+    for (const { dir: subDir, ext } of SCANNED_DIRS) {
+      const full = resolve(dir, subDir);
+      if (!existsSync(full)) continue;
+      try {
+        for (const entry of readdirSync(full)) {
+          if (entry.endsWith(ext)) found.add(resolve(full, entry));
+        }
+      } catch {
+        // Non-readable directory — skip
+      }
+    }
+
+    // Recurse into subdirectories
+    try {
+      for (const entry of readdirSync(dir)) {
+        if (SKIP_DIRS.has(entry)) continue;
+        const full = join(dir, entry);
+        try {
+          if (statSync(full).isDirectory()) walk(full, depth + 1);
+        } catch {
+          // Unreadable — skip
+        }
+      }
+    } catch {
+      // Unreadable directory — skip
+    }
+  }
+
+  walk(root, 0);
+  return Array.from(found);
 }

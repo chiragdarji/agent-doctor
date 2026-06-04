@@ -1,3 +1,4 @@
+import chalk from 'chalk';
 import { Command } from 'commander';
 import { resolve, relative, dirname, join, basename } from 'node:path';
 import { existsSync, watch as fsWatch } from 'node:fs';
@@ -6,7 +7,7 @@ import { spawn } from 'node:child_process';
 import { analyse, analyseAll, analyseCrossFile } from './analyser/index.js';
 import { parseFile } from './parser/index.js';
 import { loadConfig } from './config.js';
-import { discoverFiles } from './discovery.js';
+import { discoverFiles, discoverOrgFiles } from './discovery.js';
 import { applyFixes } from './fixer.js';
 import { initFile } from './init.js';
 import {
@@ -16,6 +17,7 @@ import {
   formatResultsJson,
 } from './output/formatter.js';
 import { formatReadinessReport } from './output/readiness-reporter.js';
+import { formatOrgReport, formatOrgReportJson } from './output/org-reporter.js';
 import { runHistory } from './analyser/history.js';
 import { formatHistory, formatHistoryJson } from './output/history-reporter.js';
 import type { AnalysisResult, Severity } from './types.js';
@@ -48,6 +50,7 @@ program
   .option('--force', 'Overwrite existing files without prompting (use with --init)')
   .option('--readiness-report', 'Print a detailed per-dimension readiness breakdown instead of the standard issue list')
   .option('--history [n]', 'Show score trend for the last n git commits (default: 10)', '10')
+  .option('--org [dir]', 'Org-level health dashboard — recursively discovers all instruction files under dir (default: cwd)')
   .option('--mcp', 'Start MCP server mode (v0.2)')
   .action(async (file: string | undefined, opts: {
     all?: boolean;
@@ -63,6 +66,7 @@ program
     force?: boolean;
     readinessReport?: boolean;
     history?: string;
+    org?: string | boolean;
     mcp?: boolean;
   }) => {
     if (opts.init) {
@@ -115,6 +119,32 @@ program
         }
       } catch (err) {
         process.stderr.write(`${String(err)}\n`);
+        process.exit(2);
+      }
+      return;
+    }
+
+    if (opts.org !== undefined) {
+      const cwd = process.cwd();
+      const orgRoot = typeof opts.org === 'string' && opts.org.length > 0
+        ? resolve(cwd, opts.org)
+        : cwd;
+      const config = loadConfig(cwd);
+      config.layers = ['structural'];
+      const discovered = discoverOrgFiles(orgRoot);
+      if (discovered.length === 0) {
+        process.stdout.write(chalk.yellow('No agent instruction files found.\n'));
+        process.exit(0);
+      }
+      try {
+        const results = await analyseAll(discovered, config);
+        if (opts.format === 'json') {
+          process.stdout.write(formatOrgReportJson(results, orgRoot) + '\n');
+        } else {
+          process.stdout.write(formatOrgReport(results, orgRoot) + '\n');
+        }
+      } catch (err) {
+        process.stderr.write(`Error during org analysis: ${String(err)}\n`);
         process.exit(2);
       }
       return;
