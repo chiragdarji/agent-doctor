@@ -4,6 +4,24 @@ All notable changes to `agent-doctor` are documented here.
 
 ---
 
+## [0.7.0] — 2026-06-04
+
+### Added
+
+**VS Code extension** — `packages/vscode-agent-doctor/`
+
+- On-save structural analysis (16 rules, zero API cost) for `CLAUDE.md`, `AGENTS.md`, `.mdc`, `GEMINI.md`
+- Diagnostics appear in the Problems panel and as inline squiggles
+- Severity controlled by `agentDoctor.failOnSeverity` (default: `critical` → error, others → warning/hint)
+- **Quick Fix** code actions for 4 auto-fixable rules: `todo-in-instructions`, `unclosed-code-block`, `empty-section`, `missing-success-criteria` — applied via `WorkspaceEdit` with full undo support
+- Command: **Agent Doctor: Run Full Analysis** — runs structural + semantic (LLM) analysis on the active file; prompts for API key if missing
+- Command: **Agent Doctor: Run Structural Analysis** — force-refreshes structural diagnostics
+- Settings: `anthropicApiKey`, `openaiApiKey`, `model`, `enableOnSave`, `failOnSeverity`
+- Built with esbuild (CJS bundle, 675KB); tiktoken replaced with a lightweight character stub so no native binaries are required
+- Publish with: `cd packages/vscode-agent-doctor && npm install && npm run package`
+
+---
+
 ## [0.6.0] — 2026-06-04
 
 ### Added

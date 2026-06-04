@@ -69,11 +69,11 @@ Each task is scoped to a single commit. Check the box and push when done.
 - [x] **3B.3** Add tests in `tests/readiness-reporter.test.ts` — 18 tests covering shape, all-green path, per-dimension grouping, multi-file aggregate
 
 ### 3C — VS Code extension
-- [ ] **3C.1** Create `packages/vscode-agent-doctor/` subdirectory with `package.json` for VS Code extension
-- [ ] **3C.2** Implement `extension.ts` — on-save diagnostic provider that runs structural rules (zero API cost) against active `.md` / `.mdc` files
-- [ ] **3C.3** Implement inline code actions — "Apply fix" for auto-fixable rules
-- [ ] **3C.4** Add semantic analysis on-demand via command palette ("agent-doctor: Run full analysis")
-- [ ] **3C.5** Publish to VS Code Marketplace
+- [x] **3C.1** Created `packages/vscode-agent-doctor/` with `package.json`, `tsconfig.json`, `esbuild.mjs`, `.vscodeignore`, `README.md`
+- [x] **3C.2** `src/extension.ts` + `src/diagnostics.ts` — on-save DiagnosticCollection provider, structural analysis on open/save, clears on close
+- [x] **3C.3** `src/code-actions.ts` — `AgentDoctorCodeActionProvider` + `applyFix` command using `dryRun` preview + `WorkspaceEdit` for proper undo
+- [x] **3C.4** `DiagnosticsProvider.runFullAnalysis()` — command palette entry; resolves LLM client from settings/env, prompts if missing, shows progress notification
+- [ ] **3C.5** Publish to VS Code Marketplace — run `cd packages/vscode-agent-doctor && npm install && npm run package` then upload `.vsix` at marketplace.visualstudio.com
 
 ---
 
@@ -115,4 +115,4 @@ Types: `docs` · `feat` · `fix` · `test` · `refactor` · `chore`
 
 ---
 
-_Last updated: 2026-06-04 — Phase 1 complete, Phase 2 complete, Phase 3A+3B complete_
+_Last updated: 2026-06-04 — Phase 1 complete, Phase 2 complete, Phase 3A+3B+3C(code) complete; 3C.5 (Marketplace publish) pending_

@@ -1,0 +1,103 @@
+{
+  "name": "vscode-agent-doctor",
+  "displayName": "Agent Doctor",
+  "description": "Semantic health checks for AI agent instruction files (CLAUDE.md, AGENTS.md, .mdc, GEMINI.md)",
+  "version": "0.1.0",
+  "publisher": "chiragdarji",
+  "license": "MIT",
+  "homepage": "https://github.com/chiragdarji/agent-doctor",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chiragdarji/agent-doctor.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "AI",
+    "agents",
+    "CLAUDE.md",
+    "cursor",
+    "agent-doctor",
+    "MCP"
+  ],
+  "icon": "icon.png",
+  "activationEvents": [
+    "onLanguage:markdown",
+    "workspaceContains:**/CLAUDE.md",
+    "workspaceContains:**/AGENTS.md",
+    "workspaceContains:**/GEMINI.md",
+    "workspaceContains:**/.cursor/rules/*.mdc"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "agentDoctor.runFullAnalysis",
+        "title": "Agent Doctor: Run Full Analysis (Structural + Semantic)"
+      },
+      {
+        "command": "agentDoctor.runStructuralAnalysis",
+        "title": "Agent Doctor: Run Structural Analysis"
+      }
+    ],
+    "configuration": {
+      "title": "Agent Doctor",
+      "properties": {
+        "agentDoctor.anthropicApiKey": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Anthropic API key for Claude semantic analysis. Falls back to `ANTHROPIC_API_KEY` env var. Required for **Run Full Analysis**.",
+          "order": 1
+        },
+        "agentDoctor.openaiApiKey": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "OpenAI API key for GPT semantic analysis. Falls back to `OPENAI_API_KEY` env var.",
+          "order": 2
+        },
+        "agentDoctor.model": {
+          "type": "string",
+          "default": "claude-sonnet-4-6",
+          "markdownDescription": "LLM model for semantic analysis (e.g. `claude-sonnet-4-6`, `gpt-4o`).",
+          "order": 3
+        },
+        "agentDoctor.enableOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run structural analysis automatically when an agent instruction file is saved.",
+          "order": 4
+        },
+        "agentDoctor.failOnSeverity": {
+          "type": "string",
+          "enum": [
+            "critical",
+            "warning",
+            "suggestion"
+          ],
+          "default": "critical",
+          "description": "Minimum severity shown as an error diagnostic (others are warnings/hints).",
+          "order": 5
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "build:watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "package": "npm run build && vsce package --no-dependencies",
+    "publish": "npm run build && vsce publish --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.41",
+    "@types/vscode": "^1.120.0",
+    "@vscode/vsce": "^2.24.0",
+    "esbuild": "^0.24.2",
+    "typescript": "^5.9.3"
+  }
+}
