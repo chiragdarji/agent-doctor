@@ -33,6 +33,8 @@ temp/
 
 # VS Code extension packaging artifacts
 *.vsix
+# But track the published VSIX for download convenience
+!packages/vscode-agent-doctor/*.vsix
 
 # Lock files — commit package-lock.json, not yarn/pnpm
 yarn.lock
