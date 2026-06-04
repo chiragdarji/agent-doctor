@@ -307,6 +307,7 @@ Options:
   --format <format>       Output format: text | json (default: text)
   --fix                   Auto-fix structural issues in-place
   --dry-run               Preview --fix changes without writing to disk
+  --watch                 Re-run analysis on every file save — Ctrl+C to stop
   --mcp                   Start MCP server mode
   -V, --version           Show version number
   -h, --help              Show help
@@ -505,7 +506,7 @@ All analysis runs locally. Nothing is stored or cached.
 - [x] `--dry-run` — preview fixes without writing
 - [x] Ollama / local LLM support via `provider: "openai-compatible"` + `baseURL`
 - [x] Cursor semantic skill (`skills/cursor-semantic-analysis/SKILL.md`)
-- [ ] `--watch` mode (re-analyse on save)
+- [x] `--watch` mode (re-analyse on save)
 - [ ] `--init` scaffold generator (create a well-structured CLAUDE.md template)
 - [ ] Cross-file conflict detection (CLAUDE.md vs AGENTS.md)
 - [ ] Custom rule plugins

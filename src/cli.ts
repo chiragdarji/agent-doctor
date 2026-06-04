@@ -1,6 +1,6 @@
 import { Command } from 'commander';
-import { resolve, dirname, join } from 'node:path';
-import { existsSync } from 'node:fs';
+import { resolve, dirname, join, basename } from 'node:path';
+import { existsSync, watch as fsWatch } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { analyse, analyseAll } from './analyser/index.js';
@@ -34,8 +34,9 @@ program
     '--model <id>',
     'Override LLM model (e.g. gpt-4o uses OPENAI_API_KEY; claude-* uses ANTHROPIC_API_KEY)',
   )
-  .option('--fix', 'Auto-fix structural issues in-place (todo-in-instructions, unclosed-code-block, empty-section)')
+  .option('--fix', 'Auto-fix structural issues in-place (todo-in-instructions, unclosed-code-block, empty-section, missing-success-criteria)')
   .option('--dry-run', 'Preview --fix changes without writing to disk')
+  .option('--watch', 'Re-run analysis on every file save — Ctrl+C to stop (single file only)')
   .option('--mcp', 'Start MCP server mode (v0.2)')
   .action(async (file: string | undefined, opts: {
     all?: boolean;
@@ -45,6 +46,7 @@ program
     model?: string;
     fix?: boolean;
     dryRun?: boolean;
+    watch?: boolean;
     mcp?: boolean;
   }) => {
     if (opts.mcp) {
@@ -125,6 +127,46 @@ program
       process.stdout.write(
         (results.length === 1 ? formatResult(results[0]!) : formatResults(results)) + '\n',
       );
+    }
+
+    // Watch mode — re-run analysis on file save (single file only, no --fix)
+    if (opts.watch) {
+      const watchTarget = results[0]?.file;
+      if (!watchTarget) {
+        process.stderr.write('--watch requires a single file target.\n');
+        process.exit(2);
+      }
+      if (opts.all) {
+        process.stderr.write('--watch cannot be combined with --all.\n');
+        process.exit(2);
+      }
+      process.stdout.write(`\n👁  Watching ${basename(watchTarget)} for changes… (Ctrl+C to stop)\n`);
+
+      let debounce: ReturnType<typeof setTimeout> | undefined;
+      fsWatch(watchTarget, () => {
+        clearTimeout(debounce);
+        debounce = setTimeout(() => {
+          void (async () => {
+            process.stdout.write(`\n${'─'.repeat(44)}\n`);
+            process.stdout.write(`🔄  File changed, re-analysing…\n`);
+            process.stdout.write(`${'─'.repeat(44)}\n`);
+            try {
+              const refreshed = await analyse(watchTarget, config);
+              process.stdout.write(
+                opts.format === 'json'
+                  ? formatResultJson(refreshed) + '\n'
+                  : formatResult(refreshed) + '\n',
+              );
+            } catch (err) {
+              process.stderr.write(`Error re-analysing: ${String(err)}\n`);
+            }
+          })();
+        }, 300);
+      });
+
+      // Keep the process alive until Ctrl+C
+      process.stdin.resume();
+      return;
     }
 
     // Apply fixes if requested
