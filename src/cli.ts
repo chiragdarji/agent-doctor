@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { resolve, dirname, join, basename } from 'node:path';
+import { resolve, relative, dirname, join, basename } from 'node:path';
 import { existsSync, watch as fsWatch } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
@@ -59,15 +59,21 @@ program
   }) => {
     if (opts.init) {
       const VALID_TYPES: InitType[] = ['claude', 'cursor', 'agents'];
-      const initType: InitType = VALID_TYPES.includes(opts.type as InitType)
-        ? (opts.type as InitType)
-        : 'claude';
+      const cwd = process.cwd();
+      let initType: InitType;
+      if (VALID_TYPES.includes(opts.type as InitType)) {
+        initType = opts.type as InitType;
+      } else {
+        process.stderr.write(`Unknown --type "${opts.type}" — valid values: claude | cursor | agents. Defaulting to claude.\n`);
+        initType = 'claude';
+      }
 
       try {
-        const result = await initFile({ type: initType, cwd: process.cwd(), force: opts.force ?? false });
+        const result = await initFile({ type: initType, cwd, force: opts.force ?? false });
         const verb = result.existed ? 'Overwrote' : 'Created';
+        const relPath = relative(cwd, result.filePath);
         process.stdout.write(`✅  ${verb} ${result.filePath}\n`);
-        process.stdout.write(`    Run \`npx @chiragdarji/agent-doctor ${result.filePath}\` to validate.\n`);
+        process.stdout.write(`    Run \`npx @chiragdarji/agent-doctor ${relPath}\` to validate.\n`);
       } catch (err) {
         process.stderr.write(`${String(err)}\n`);
         process.exit(1);

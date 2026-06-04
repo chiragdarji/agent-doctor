@@ -6,6 +6,8 @@
 export { analyse, analyseAll } from './analyser/index.js';
 export { applyFixes } from './fixer.js';
 export type { FixResult } from './fixer.js';
+export { initFile, templateFor } from './init.js';
+export type { InitType, InitOptions, InitResult } from './init.js';
 export { loadConfig } from './config.js';
 export { discoverFiles } from './discovery.js';
 export { parseFile, parseMarkdown, parseMdc, parseSections } from './parser/index.js';

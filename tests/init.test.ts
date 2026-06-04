@@ -141,6 +141,18 @@ describe('initFile — overwrite guard', () => {
     expect(result.existed).toBe(true);
     expect(readFileSync(existingPath, 'utf8')).toBe(templateFor('claude'));
   });
+
+  it('overwrites cursor template with --force when file and dirs already exist', async () => {
+    // Pre-create the directory and file
+    const cursorDir = join(tmpDir, '.cursor', 'rules');
+    mkdirSync(cursorDir, { recursive: true });
+    const existingPath = join(cursorDir, 'main.mdc');
+    writeFileSync(existingPath, 'old cursor content', 'utf8');
+
+    const result = await initFile({ type: 'cursor', cwd: tmpDir, force: true });
+    expect(result.existed).toBe(true);
+    expect(readFileSync(existingPath, 'utf8')).toBe(templateFor('cursor'));
+  });
 });
 
 // ---------------------------------------------------------------------------
