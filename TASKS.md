@@ -8,13 +8,13 @@ Each task is scoped to a single commit. Check the box and push when done.
 
 > Goal: make the codebase and docs match reality. No new features, just trust repair.
 
-- [ ] **1.1** Fix README badge counts — update "13 structural / 8 semantic" → "16 structural / 10 semantic"
-- [ ] **1.2** Update README structural rules table — add `missing-success-criteria`, `hardcoded-environment`, `missing-tool-list` rows
-- [ ] **1.3** Update README semantic rules table — add `missing-recovery-strategy`, `unobservable-outcome` rows
-- [ ] **1.4** Add Readiness Score section to README — explain the 5 dimensions (observable / bounded / reversible / tooled / documented) and show example CLI output
-- [ ] **1.5** Add explicit semantic test cases to `tests/semantic.test.ts` — one positive + one negative example each for `missing-recovery-strategy` and `unobservable-outcome` using injected mock `LLMClient`
-- [ ] **1.6** Remove dead `cross-file-conflict` stub from `RuleId` in `src/types.ts` (it is unimplemented; will be re-added properly in Phase 2)
-- [ ] **1.7** Add CHANGELOG entry — document all rule additions since v0.1.0 and bump version to **v0.4.0** in `package.json`
+- [x] **1.1** Fix README badge counts — update "13 structural / 8 semantic" → "16 structural / 10 semantic"
+- [x] **1.2** Update README structural rules table — add `missing-success-criteria`, `hardcoded-environment`, `missing-tool-list` rows
+- [x] **1.3** Update README semantic rules table — add `missing-recovery-strategy`, `unobservable-outcome` rows
+- [x] **1.4** Add Readiness Score section to README — explain the 5 dimensions (observable / bounded / reversible / tooled / documented) and show example CLI output
+- [x] **1.5** Add explicit semantic test cases to `tests/semantic.test.ts` — one positive + one negative example each for `missing-recovery-strategy` and `unobservable-outcome` using injected mock `LLMClient`
+- [x] **1.6** Remove dead `cross-file-conflict` stub from `RuleId` in `src/types.ts` (it is unimplemented; will be re-added properly in Phase 2)
+- [x] **1.7** Add CHANGELOG entry — document all rule additions since v0.1.0 and bump version to **v0.4.0** in `package.json`
 
 ---
 
