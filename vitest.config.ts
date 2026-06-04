@@ -6,5 +6,6 @@ export default defineConfig({
     // tiktoken uses WASM which crashes in Node.js worker threads
     // (v8::ToLocalChecked Empty MaybeLocal). Forks mode avoids this.
     pool: 'forks',
+    exclude: ['**/node_modules/**', '**/.claude/worktrees/**'],
   },
 });

@@ -31,6 +31,9 @@ coverage/
 tmp/
 temp/
 
+# Claude Code agent worktrees (temporary isolated workspaces)
+.claude/worktrees/
+
 # VS Code extension packaging artifacts
 *.vsix
 # But track the published VSIX for download convenience

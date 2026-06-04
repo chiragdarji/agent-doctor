@@ -7,12 +7,14 @@ const WELL_KNOWN_FILES = [
   'GEMINI.md',
   '.github/copilot-instructions.md',
   '.cursorrules',
+  '.windsurfrules',
 ];
 
 const SCANNED_DIRS: Array<{ dir: string; ext: string }> = [
   { dir: '.cursor/rules', ext: '.mdc' },
   { dir: '.claude/agents', ext: '.md' },
   { dir: '.claude/commands', ext: '.md' },
+  { dir: '.roo/rules', ext: '.md' },
 ];
 
 /**
