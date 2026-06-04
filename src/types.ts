@@ -89,6 +89,8 @@ export type FileType =
   | 'copilot-instructions'
   | 'claude-agent'
   | 'claude-command'
+  | 'windsurf-rules'
+  | 'roo-rule'
   | 'unknown';
 
 export interface ParsedFile {

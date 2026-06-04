@@ -20,6 +20,7 @@ import { formatReadinessReport } from './output/readiness-reporter.js';
 import { formatOrgReport, formatOrgReportJson } from './output/org-reporter.js';
 import { runHistory } from './analyser/history.js';
 import { formatHistory, formatHistoryJson } from './output/history-reporter.js';
+import { formatBadge } from './output/badge.js';
 import type { AnalysisResult, Severity } from './types.js';
 import type { InitType } from './init.js';
 
@@ -36,7 +37,7 @@ program
   .argument('[file]', 'Path to the instruction file to analyse')
   .option('--all', 'Discover and analyse all instruction files in the project')
   .option('--fail-on <severity>', 'Exit with code 1 if any issue meets this severity', 'critical')
-  .option('--format <format>', 'Output format: text or json', 'text')
+  .option('--format <format>', 'Output format: text, json, or badge', 'text')
   .option('--structural-only', 'Skip semantic layer (no API key required)')
   .option(
     '--model <id>',
@@ -229,7 +230,9 @@ program
     }
 
     // Output
-    if (opts.format === 'json') {
+    if (opts.format === 'badge') {
+      process.stdout.write(formatBadge(results) + '\n');
+    } else if (opts.format === 'json') {
       process.stdout.write(
         (results.length === 1
           ? formatResultJson(results[0]!)

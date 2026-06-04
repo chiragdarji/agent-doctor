@@ -35,6 +35,8 @@ export function detectFileType(filePath: string): FileType {
   if (normalised.toLowerCase().endsWith('copilot-instructions.md')) return 'copilot-instructions';
   if (/\.claude\/agents\//i.test(normalised) && base.endsWith('.md')) return 'claude-agent';
   if (/\.claude\/commands\//i.test(normalised) && base.endsWith('.md')) return 'claude-command';
+  if (/^\.windsurfrules$/i.test(base)) return 'windsurf-rules';
+  if (/\.roo\/rules\//i.test(normalised) && base.endsWith('.md')) return 'roo-rule';
   return 'unknown';
 }
 

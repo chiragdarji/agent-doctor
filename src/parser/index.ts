@@ -14,6 +14,8 @@ export function parseFile(filePath: string): ParsedFile {
   if (ext === '.mdc') return parseMdc(filePath);
   // Legacy .cursorrules — parse as markdown; legacy-format rule will flag it
   if (base === '.cursorrules') return parseMarkdown(filePath);
+  // Windsurf IDE rules — same plain-markdown format as .cursorrules
+  if (base === '.windsurfrules') return parseMarkdown(filePath);
   if (ext === '.md') return parseMarkdown(filePath);
 
   // Unknown extension — attempt markdown parse
