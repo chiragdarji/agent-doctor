@@ -1,6 +1,9 @@
 import { parseFile } from '../parser/index.js';
 import { runStructuralAnalysis } from './structural.js';
 import { analyseSemantics } from './semantic.js';
+import { multiFileSemantics } from './multi-file-semantic.js';
+import type { FileContent } from './multi-file-semantic.js';
+import type { LLMClient } from './llm-client.js';
 import type {
   AnalysisLayer,
   AnalysisResult,
@@ -59,6 +62,45 @@ export async function analyseAll(
   return Promise.all(filePaths.map((fp) => analyse(fp, config)));
 }
 
+/**
+ * Runs cross-file semantic analysis on 2+ already-parsed files, returning a
+ * synthetic AnalysisResult scoped to the set of files. Returns null when:
+ *   - fewer than 2 files are provided
+ *   - semantic layer is not in config.layers
+ *   - no conflicts are detected
+ *
+ * @param files  - File paths + content pairs (use parseFile() to populate content).
+ * @param config - Analysis configuration.
+ * @param client - Optional injected LLMClient (for tests).
+ */
+export async function analyseCrossFile(
+  files: FileContent[],
+  config: Config,
+  client?: LLMClient,
+): Promise<AnalysisResult | null> {
+  if (files.length < 2) return null;
+  if (!config.layers.includes('semantic')) return null;
+
+  const issues = await multiFileSemantics(files, config, client);
+  const filtered = issues.filter((i) => config.rules[i.ruleId] !== 'off');
+  if (filtered.length === 0) return null;
+
+  const score = calculateScore(filtered);
+  const { readinessScore, readinessDimensions } = computeReadiness(filtered);
+
+  return {
+    file: '<cross-file-analysis>',
+    score,
+    grade: calculateGrade(score),
+    issues: filtered,
+    tokenCount: 0,
+    analysedAt: new Date().toISOString(),
+    layers: ['semantic'],
+    readinessScore,
+    readinessDimensions,
+  };
+}
+
 function calculateScore(issues: Issue[]): number {
   const deductions: Record<Severity, number> = {
     critical: 20,
@@ -96,6 +138,7 @@ const READINESS_DEDUCTIONS: Partial<
   'todo-in-instructions': { documented: 20 },
   'empty-section': { documented: 10 },
   'ambiguous-pronoun': { documented: 10 },
+  'cross-file-conflict': { bounded: 15, documented: 10 },
 };
 
 /**

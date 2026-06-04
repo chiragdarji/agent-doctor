@@ -28,7 +28,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { analyse, computeReadiness } from './analyser/index.js';
+import { analyse, analyseCrossFile, computeReadiness } from './analyser/index.js';
 import { analyseSemantics } from './analyser/semantic.js';
 import {
   createAnthropicClient,
@@ -38,6 +38,7 @@ import {
 } from './analyser/llm-client.js';
 import { loadConfig } from './config.js';
 import { parseFile } from './parser/index.js';
+import { multiFileSemantics } from './analyser/multi-file-semantic.js';
 import { runStructuralAnalysis } from './analyser/structural.js';
 import { formatResultJson } from './output/formatter.js';
 import type { LLMClient } from './analyser/llm-client.js';
@@ -94,6 +95,17 @@ function strArg(args: unknown, key: string): string | undefined {
   return undefined;
 }
 
+/** Extracts a string[] argument safely from MCP args. Returns [] if absent. */
+function strArrayArg(args: unknown, key: string): string[] {
+  if (args !== null && typeof args === 'object' && key in (args as object)) {
+    const val = (args as Record<string, unknown>)[key];
+    if (Array.isArray(val)) {
+      return val.filter((v): v is string => typeof v === 'string' && v.length > 0);
+    }
+  }
+  return [];
+}
+
 // ---------------------------------------------------------------------------
 // Server
 // ---------------------------------------------------------------------------
@@ -112,15 +124,23 @@ server.setRequestHandler(ListToolsRequestSchema, () => ({
     {
       name: 'analyse_agent_file',
       description:
-        'Run agent-doctor on an AI instruction file (CLAUDE.md, AGENTS.md, .mdc, GEMINI.md, etc.) ' +
+        'Run agent-doctor on one or more AI instruction files (CLAUDE.md, AGENTS.md, .mdc, GEMINI.md, etc.) ' +
         'and return a full health report with score, grade, and all issues found. ' +
+        'When multiple files are provided via filePaths, cross-file conflict detection also runs. ' +
         'Pass anthropicApiKey or openaiApiKey to enable semantic (LLM) analysis.',
       inputSchema: {
         type: 'object' as const,
         properties: {
           filePath: {
             type: 'string',
-            description: 'Absolute or relative path to the instruction file to analyse',
+            description: 'Absolute or relative path to a single instruction file to analyse',
+          },
+          filePaths: {
+            type: 'array',
+            items: { type: 'string' },
+            description:
+              'Absolute or relative paths to multiple instruction files. ' +
+              'When 2+ files are provided with semantic layer enabled, cross-file conflict detection runs.',
           },
           layers: {
             type: 'array',
@@ -145,7 +165,7 @@ server.setRequestHandler(ListToolsRequestSchema, () => ({
               'OpenAI API key for gpt-* / o-series models. Falls back to OPENAI_API_KEY env var.',
           },
         },
-        required: ['filePath'],
+        required: [],
       },
     },
     {
@@ -194,15 +214,29 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   // ── analyse_agent_file ────────────────────────────────────────────────────
   if (name === 'analyse_agent_file') {
-    const rawPath = strArg(args, 'filePath') ?? '';
-    const filePath = resolve(process.cwd(), rawPath);
+    // Support both filePath (single) and filePaths (multiple)
+    const singlePath = strArg(args, 'filePath');
+    const multiplePaths = strArrayArg(args, 'filePaths');
+    const rawPaths: string[] =
+      multiplePaths.length > 0
+        ? multiplePaths
+        : singlePath !== undefined
+          ? [singlePath]
+          : [];
 
-    if (!existsSync(filePath)) {
-      return errorText(`File not found: ${filePath}`);
+    if (rawPaths.length === 0) {
+      return errorText('filePath or filePaths is required');
+    }
+
+    const cwd = process.cwd();
+    const filePaths = rawPaths.map((p) => resolve(cwd, p));
+
+    for (const fp of filePaths) {
+      if (!existsSync(fp)) return errorText(`File not found: ${fp}`);
     }
 
     try {
-      const config = loadConfig(process.cwd());
+      const config = loadConfig(cwd);
 
       // Model override
       const model = strArg(args, 'model');
@@ -213,9 +247,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         args !== null &&
         typeof args === 'object' &&
         'layers' in (args as object) &&
-        Array.isArray((args)['layers'])
+        Array.isArray((args as Record<string, unknown>)['layers'])
       ) {
-        config.layers = (args)['layers'] as (
+        config.layers = (args as Record<string, unknown>)['layers'] as (
           | 'structural'
           | 'semantic'
         )[];
@@ -234,80 +268,117 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         semanticSkipped = true;
       }
 
-      let result: AnalysisResult;
-
-      if (client !== null) {
-        // Run layers manually so we can inject the resolved client
-        const parsed = parseFile(filePath);
-        const structuralIssues = config.layers.includes('structural')
-          ? runStructuralAnalysis(parsed, config)
-          : [];
-        const semanticIssues = await analyseSemantics(parsed.content, filePath, config, client);
-        const filtered = semanticIssues.filter((i) => config.rules[i.ruleId] !== 'off');
-        const allIssues = [...structuralIssues, ...filtered];
-        const score = calcScore(allIssues);
-        const grade =
-          score >= 90 ? 'A' : score >= 75 ? 'B' : score >= 60 ? 'C' : score >= 40 ? 'D' : 'F';
-
-        const { readinessScore, readinessDimensions } = computeReadiness(allIssues);
-        result = {
-          file: filePath,
-          score,
-          grade,
-          issues: allIssues,
-          tokenCount: parsed.tokenCount,
-          analysedAt: new Date().toISOString(),
-          layers: config.layers,
-          readinessScore,
-          readinessDimensions,
-        };
-      } else {
-        result = await analyse(filePath, config);
+      // Per-file analysis
+      const results: AnalysisResult[] = [];
+      for (const filePath of filePaths) {
+        let result: AnalysisResult;
+        if (client !== null) {
+          const parsed = parseFile(filePath);
+          const structuralIssues = config.layers.includes('structural')
+            ? runStructuralAnalysis(parsed, config)
+            : [];
+          const semanticIssues = await analyseSemantics(
+            parsed.content,
+            filePath,
+            config,
+            client,
+          );
+          const filtered = semanticIssues.filter((i) => config.rules[i.ruleId] !== 'off');
+          const allIssues = [...structuralIssues, ...filtered];
+          const score = calcScore(allIssues);
+          const grade =
+            score >= 90 ? 'A' : score >= 75 ? 'B' : score >= 60 ? 'C' : score >= 40 ? 'D' : 'F';
+          const { readinessScore, readinessDimensions } = computeReadiness(allIssues);
+          result = {
+            file: filePath,
+            score,
+            grade,
+            issues: allIssues,
+            tokenCount: parsed.tokenCount,
+            analysedAt: new Date().toISOString(),
+            layers: config.layers,
+            readinessScore,
+            readinessDimensions,
+          };
+        } else {
+          result = await analyse(filePath, config);
+        }
+        results.push(result);
       }
 
-      const criticals = result.issues.filter((i) => i.severity === 'critical');
-      const warnings = result.issues.filter((i) => i.severity === 'warning');
-      const suggestions = result.issues.filter((i) => i.severity === 'suggestion');
+      // Cross-file conflict detection when 2+ files analysed with semantic layer
+      if (filePaths.length >= 2 && !semanticSkipped && client !== null) {
+        const fileContents = filePaths.map((fp) => {
+          const parsed = parseFile(fp);
+          return { filePath: fp, content: parsed.content };
+        });
+        const crossIssues = await multiFileSemantics(fileContents, config, client);
+        const filtered = crossIssues.filter((i) => config.rules[i.ruleId] !== 'off');
+        if (filtered.length > 0) {
+          const crossScore = calcScore(filtered);
+          const { readinessScore, readinessDimensions } = computeReadiness(filtered);
+          results.push({
+            file: '<cross-file-analysis>',
+            score: crossScore,
+            grade: crossScore >= 90 ? 'A' : crossScore >= 75 ? 'B' : crossScore >= 60 ? 'C' : crossScore >= 40 ? 'D' : 'F',
+            issues: filtered,
+            tokenCount: 0,
+            analysedAt: new Date().toISOString(),
+            layers: ['semantic'],
+            readinessScore,
+            readinessDimensions,
+          });
+        }
+      }
 
-      const issueLines =
-        result.issues.length === 0
-          ? ['✅ No issues found — this file is healthy.']
-          : result.issues.map(
-              (i) =>
-                `### [${i.severity.toUpperCase()}] \`${i.ruleId}\`${i.line ? ` — line ${i.line}` : ''}\n` +
-                `**Issue:** ${i.message}\n` +
-                `**Fix:** ${i.suggestion}` +
-                (i.context ? `\n\`\`\`\n${i.context}\n\`\`\`` : ''),
-            );
+      // Build summary text
+      const sections: string[] = [`# agent-doctor report`];
 
-      const rd = result.readinessDimensions;
-      const summary = [
-        `# agent-doctor report`,
-        `**File:** \`${result.file}\``,
-        `**Score:** ${result.score}/100  **Grade:** ${result.grade}`,
-        `**Readiness:** ${result.readinessScore}/100  (obs:${rd.observable} bnd:${rd.bounded} rev:${rd.reversible} tld:${rd.tooled} doc:${rd.documented})`,
-        `**Layers:** ${result.layers.join(' + ')}`,
-        `**Issues:** ${criticals.length} critical · ${warnings.length} warnings · ${suggestions.length} suggestions`,
-        ...(semanticSkipped
-          ? [
-              '',
-              '> ⚠️ **semantic_skipped:** No API key provided — structural analysis only.',
-              '> Pass `anthropicApiKey`, `openaiApiKey`, or set `provider: "openai-compatible"` with `baseURL` for full analysis.',
-            ]
-          : []),
-        '',
-        ...issueLines,
-        '',
-        '<details><summary>Full JSON</summary>',
-        '',
-        '```json',
-        formatResultJson(result),
-        '```',
-        '',
-        '</details>',
-      ].join('\n');
+      for (const result of results) {
+        const isCrossFile = result.file === '<cross-file-analysis>';
+        const criticals = result.issues.filter((i) => i.severity === 'critical');
+        const warnings = result.issues.filter((i) => i.severity === 'warning');
+        const suggestions = result.issues.filter((i) => i.severity === 'suggestion');
 
-      return { content: [{ type: 'text' as const, text: summary }] };
+        const issueLines =
+          result.issues.length === 0
+            ? ['✅ No issues found — this file is healthy.']
+            : result.issues.map(
+                (i) =>
+                  `### [${i.severity.toUpperCase()}] \`${i.ruleId}\`${i.line ? ` — line ${i.line}` : ''}\n` +
+                  `**Issue:** ${i.message}\n` +
+                  `**Fix:** ${i.suggestion}` +
+                  (i.context ? `\n\`\`\`\n${i.context}\n\`\`\`` : ''),
+              );
+
+        const rd = result.readinessDimensions;
+        sections.push(
+          [
+            `---`,
+            isCrossFile
+              ? `## Cross-file conflict analysis`
+              : `## \`${result.file}\``,
+            `**Score:** ${result.score}/100  **Grade:** ${result.grade}`,
+            isCrossFile
+              ? ''
+              : `**Readiness:** ${result.readinessScore}/100  (obs:${rd.observable} bnd:${rd.bounded} rev:${rd.reversible} tld:${rd.tooled} doc:${rd.documented})`,
+            `**Issues:** ${criticals.length} critical · ${warnings.length} warnings · ${suggestions.length} suggestions`,
+            '',
+            ...issueLines,
+          ]
+            .filter((l) => l !== undefined)
+            .join('\n'),
+        );
+      }
+
+      if (semanticSkipped) {
+        sections.push(
+          '> ⚠️ **semantic_skipped:** No API key provided — structural analysis only.\n' +
+            '> Pass `anthropicApiKey`, `openaiApiKey`, or set `provider: "openai-compatible"` with `baseURL` for full analysis.',
+        );
+      }
+
+      return { content: [{ type: 'text' as const, text: sections.join('\n') }] };
     } catch (err) {
       return errorText(`Analysis failed: ${String(err)}`);
     }

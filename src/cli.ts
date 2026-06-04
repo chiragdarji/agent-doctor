@@ -1,12 +1,14 @@
 import { Command } from 'commander';
-import { resolve, dirname, join, basename } from 'node:path';
+import { resolve, relative, dirname, join, basename } from 'node:path';
 import { existsSync, watch as fsWatch } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
-import { analyse, analyseAll } from './analyser/index.js';
+import { analyse, analyseAll, analyseCrossFile } from './analyser/index.js';
+import { parseFile } from './parser/index.js';
 import { loadConfig } from './config.js';
 import { discoverFiles } from './discovery.js';
 import { applyFixes } from './fixer.js';
+import { initFile } from './init.js';
 import {
   formatResult,
   formatResults,
@@ -14,6 +16,7 @@ import {
   formatResultsJson,
 } from './output/formatter.js';
 import type { AnalysisResult, Severity } from './types.js';
+import type { InitType } from './init.js';
 
 const program = new Command();
 
@@ -37,6 +40,9 @@ program
   .option('--fix', 'Auto-fix structural issues in-place (todo-in-instructions, unclosed-code-block, empty-section, missing-success-criteria)')
   .option('--dry-run', 'Preview --fix changes without writing to disk')
   .option('--watch', 'Re-run analysis on every file save — Ctrl+C to stop (single file only)')
+  .option('--init', 'Scaffold a new agent instruction file template in the current directory')
+  .option('--type <type>', 'Template type for --init: claude | cursor | agents', 'claude')
+  .option('--force', 'Overwrite existing files without prompting (use with --init)')
   .option('--mcp', 'Start MCP server mode (v0.2)')
   .action(async (file: string | undefined, opts: {
     all?: boolean;
@@ -47,8 +53,35 @@ program
     fix?: boolean;
     dryRun?: boolean;
     watch?: boolean;
+    init?: boolean;
+    type: string;
+    force?: boolean;
     mcp?: boolean;
   }) => {
+    if (opts.init) {
+      const VALID_TYPES: InitType[] = ['claude', 'cursor', 'agents'];
+      const cwd = process.cwd();
+      let initType: InitType;
+      if (VALID_TYPES.includes(opts.type as InitType)) {
+        initType = opts.type as InitType;
+      } else {
+        process.stderr.write(`Unknown --type "${opts.type}" — valid values: claude | cursor | agents. Defaulting to claude.\n`);
+        initType = 'claude';
+      }
+
+      try {
+        const result = await initFile({ type: initType, cwd, force: opts.force ?? false });
+        const verb = result.existed ? 'Overwrote' : 'Created';
+        const relPath = relative(cwd, result.filePath);
+        process.stdout.write(`✅  ${verb} ${result.filePath}\n`);
+        process.stdout.write(`    Run \`npx @chiragdarji/agent-doctor ${relPath}\` to validate.\n`);
+      } catch (err) {
+        process.stderr.write(`${String(err)}\n`);
+        process.exit(1);
+      }
+      return;
+    }
+
     if (opts.mcp) {
       // Spawn the MCP server entry point from the same dist directory
       const mcpEntry = join(dirname(fileURLToPath(import.meta.url)), 'mcp-server.js');
@@ -87,6 +120,19 @@ program
       } catch (err) {
         process.stderr.write(`Error during analysis: ${String(err)}\n`);
         process.exit(2);
+      }
+      // Cross-file conflict detection — semantic only, requires 2+ files
+      if (discovered.length >= 2 && config.layers.includes('semantic')) {
+        try {
+          const fileContents = discovered.map((fp) => {
+            const parsed = parseFile(fp);
+            return { filePath: fp, content: parsed.content };
+          });
+          const crossResult = await analyseCrossFile(fileContents, config);
+          if (crossResult !== null) results.push(crossResult);
+        } catch (err) {
+          process.stderr.write(`Cross-file analysis error: ${String(err)}\n`);
+        }
       }
     } else if (file !== undefined) {
       const filePath = resolve(cwd, file);
