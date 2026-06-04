@@ -4,10 +4,10 @@
 > Finds the instructions that will silently break your agent — before your agent runs.
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
-![npm](https://img.shields.io/badge/npm-0.3.1-black)
+![npm](https://img.shields.io/badge/npm-0.4.0-black)
 ![MCP](https://img.shields.io/badge/MCP-server-purple)
-![Tests](https://img.shields.io/badge/tests-233%20passing-brightgreen)
-![Rules](https://img.shields.io/badge/rules-13%20structural%20%2B%208%20semantic-blue)
+![Tests](https://img.shields.io/badge/tests-258%20passing-brightgreen)
+![Rules](https://img.shields.io/badge/rules-16%20structural%20%2B%2010%20semantic-blue)
 
 <br/>
 
@@ -105,7 +105,7 @@ Model         claude-sonnet-4-6
 
 `agent-doctor` runs two layers of analysis:
 
-### Layer 1 — Structural (13 rules, zero API cost)
+### Layer 1 — Structural (16 rules, zero API cost)
 
 | Rule | Severity | What it catches |
 |------|----------|----------------|
@@ -119,11 +119,14 @@ Model         claude-sonnet-4-6
 | `duplicate-heading` | warning | Same heading twice — agent can't pick which wins |
 | `legacy-format` | warning | `.cursorrules` file ignored by agent mode |
 | `token-budget-exceeded` | warning | Section over configurable token threshold (default 500) |
+| `missing-success-criteria` | warning | Task section describes work but has no completion signal ("done when", "verify by", "tests pass") |
+| `hardcoded-environment` | warning | Absolute paths (`/home/user/…`, `C:\…`) or `localhost:PORT` tie instructions to one machine |
 | `empty-section` | suggestion | Heading with no content and no children |
 | `heading-depth-skip` | suggestion | `##` → `####` jump — breaks hierarchy agents use for scoping |
 | `negation-heavy` | suggestion | >60% "don't/never/avoid" bullets — rewrite as positive |
+| `missing-tool-list` | suggestion | File references tools by name but has no section enumerating them |
 
-### Layer 2 — Semantic (8 rules, LLM-powered)
+### Layer 2 — Semantic (10 rules, LLM-powered)
 
 | Rule | Severity | What it catches |
 |------|----------|----------------|
@@ -134,7 +137,35 @@ Model         claude-sonnet-4-6
 | `missing-fallback` | warning | Conditional with no else/default branch |
 | `scope-bleed` | warning | Rule intended for one context leaks into all contexts |
 | `over-permissive` | warning | Tool granted with no usage constraint |
+| `missing-recovery-strategy` | warning | Destructive operation (deploy, delete, migrate) with no rollback or error handling |
+| `unobservable-outcome` | warning | Task described with no way to verify it completed correctly |
 | `ambiguous-pronoun` | suggestion | "it", "they", "this" with no clear referent |
+
+### Agent Readiness Score
+
+Every result includes a **Readiness Score** (0–100) alongside the Health Score, broken down across five dimensions from the [Factory.ai Agent Readiness](https://factory.ai/news/agent-readiness) framework and [OpenAI Harness Engineering](https://openai.com/index/harness-engineering/) principles:
+
+| Dimension | What it measures | Rules that affect it |
+|-----------|-----------------|----------------------|
+| **Observable** | Can the agent verify its work completed correctly? | `unobservable-outcome`, `missing-success-criteria` |
+| **Bounded** | Is the scope and task clearly defined? | `vague-boundary`, `missing-fallback`, `scope-bleed`, `hardcoded-environment`, `missing-success-criteria` |
+| **Reversible** | Are risky operations guarded with recovery guidance? | `missing-recovery-strategy`, `over-permissive` |
+| **Tooled** | Are available tools listed and accurately described? | `missing-tool-list`, `tool-mismatch` |
+| **Documented** | Is enough context provided for decisions? | `todo-in-instructions`, `empty-section`, `ambiguous-pronoun` |
+
+The readiness score appears in the CLI footer and JSON output:
+
+```
+────────────────────────────────────────────
+Health Score   72 / 100  (C)
+Readiness      60 / 100  obs 80 · bnd 45 · rev 100 · tld 80 · doc 100
+Issues         1 critical · 3 warnings · 1 suggestion
+Files          CLAUDE.md
+Model          claude-sonnet-4-6
+────────────────────────────────────────────
+```
+
+The readiness score is **derived from existing issue findings** — no extra API call is made.
 
 ---
 
@@ -393,6 +424,14 @@ interface AnalysisResult {
   tokenCount: number;
   analysedAt: string;     // ISO timestamp
   layers: ('structural' | 'semantic')[];
+  readinessScore: number; // 0–100, average of 5 dimensions
+  readinessDimensions: {
+    observable: number;   // can outcomes be verified?
+    bounded: number;      // is scope clearly defined?
+    reversible: number;   // are risky ops guarded?
+    tooled: number;       // are tools listed/described?
+    documented: number;   // is context provided?
+  };
 }
 
 interface Issue {
@@ -433,15 +472,17 @@ export const myRule: StructuralRule = (content, filePath) => {
 ```
 Your CLAUDE.md / AGENTS.md / .mdc
       │
-      ├─► Layer 1: Structural (13 rules, regex-based, zero API cost)
+      ├─► Layer 1: Structural (16 rules, regex-based, zero API cost)
       │         ├─► Frontmatter validation (missing, conflicting, incomplete)
       │         ├─► Content quality (empty sections, duplicate headings, TODOs)
       │         ├─► Code fence integrity (unclosed blocks)
+      │         ├─► Agent readiness (success criteria, hardcoded env, tool lists)
       │         └─► Token budget per section
       │
-      └─► Layer 2: Semantic (8 rules, LLM-powered)
+      └─► Layer 2: Semantic (10 rules, LLM-powered)
                 ├─► Reads instructions as an agent would
                 ├─► Detects conflicts, ambiguities, missing boundaries
+                ├─► Flags missing recovery strategies and unverifiable outcomes
                 └─► Returns structured JSON → Zod-validated → formatted output
 ```
 
@@ -453,8 +494,9 @@ All analysis runs locally. Nothing is stored or cached.
 ## Roadmap
 
 - [x] CLI — `npx @chiragdarji/agent-doctor <file>`
-- [x] Structural layer — 13 rules, zero API cost
-- [x] Semantic layer — 8 rules, Claude + OpenAI
+- [x] Structural layer — 16 rules, zero API cost
+- [x] Semantic layer — 10 rules, Claude + OpenAI
+- [x] Agent Readiness Score — 5-dimension breakdown (observable / bounded / reversible / tooled / documented)
 - [x] OpenAI support (`gpt-4o`, `o1-*`, `o3-*`, `o4-*`)
 - [x] MCP server — `analyse_agent_file` + `suggest_fix` tools with API key injection
 - [x] Programmatic API (`analyse`, `analyseAll`, `discoverFiles`)
@@ -463,10 +505,11 @@ All analysis runs locally. Nothing is stored or cached.
 - [x] `--dry-run` — preview fixes without writing
 - [x] Ollama / local LLM support via `provider: "openai-compatible"` + `baseURL`
 - [x] Cursor semantic skill (`skills/cursor-semantic-analysis/SKILL.md`)
-- [ ] VS Code extension (inline diagnostics)
+- [ ] `--watch` mode (re-analyse on save)
+- [ ] `--init` scaffold generator (create a well-structured CLAUDE.md template)
 - [ ] Cross-file conflict detection (CLAUDE.md vs AGENTS.md)
-- [ ] Rule packs: `cursor-pack`, `claude-code-pack`, `langgraph-pack`
-- [ ] Watch mode (re-analyse on save)
+- [ ] Custom rule plugins
+- [ ] VS Code extension (inline diagnostics)
 
 ---
 
@@ -513,7 +556,7 @@ Copy `examples/cursor-mcp.json` to `.cursor/mcp.json` in your project:
 
 ### Cursor Semantic Analysis Skill
 
-When you don't have a separate Anthropic/OpenAI key, use the skill at `skills/cursor-semantic-analysis/SKILL.md` — Cursor's built-in LLM performs the semantic analysis guided by agent-doctor's 8 semantic rules.
+When you don't have a separate Anthropic/OpenAI key, use the skill at `skills/cursor-semantic-analysis/SKILL.md` — Cursor's built-in LLM performs the semantic analysis guided by agent-doctor's 10 semantic rules.
 
 ```
 1. Use agent-doctor MCP: structural analysis on CLAUDE.md
@@ -570,7 +613,7 @@ agent-doctor            →  "Will this file work?"
 git clone https://github.com/chiragdarji/agent-doctor
 cd agent-doctor
 npm install
-npm run test        # 213 tests
+npm run test        # 258 tests
 npm run dev         # watch mode
 ```
 

@@ -4,6 +4,33 @@ All notable changes to `agent-doctor` are documented here.
 
 ---
 
+## [0.4.0] — 2026-06-04
+
+### Added
+
+**3 new structural rules** (zero API cost):
+- `missing-success-criteria` (warning) — flags task sections that describe work with imperative verbs but provide no measurable completion signal ("done when", "verify by", "tests pass")
+- `hardcoded-environment` (warning) — detects absolute paths (`/home/user/…`, `C:\…`) or hardcoded `localhost:PORT` values that tie instructions to a specific machine
+- `missing-tool-list` (suggestion) — flags files that reference tools by name but have no section enumerating the available tools
+
+**2 new semantic rules** (LLM-powered):
+- `missing-recovery-strategy` (warning) — destructive or irreversible operations (deploy, delete, migrate, overwrite) with no error handling, rollback, or recovery guidance
+- `unobservable-outcome` (warning) — tasks described with no acceptance criteria or verification step, leaving the agent unable to confirm correct completion
+
+**Agent Readiness Score** — every `AnalysisResult` now includes:
+- `readinessScore` (0–100): aggregate across 5 dimensions, derived from existing issue findings at zero extra API cost
+- `readinessDimensions`: per-dimension breakdown — `observable`, `bounded`, `reversible`, `tooled`, `documented` — based on the Factory.ai Agent Readiness framework and OpenAI Harness Engineering principles
+
+The readiness score and dimension bars are displayed in the CLI footer and included in all JSON and MCP outputs.
+
+### Removed
+- Dead `cross-file-conflict` stub from `RuleId` type (rule was never implemented; will be re-added in a future release with full multi-file analysis support)
+
+### Documentation
+- README updated: badge counts, structural and semantic rule tables, Readiness Score section, `AnalysisResult` shape, How It Works diagram, Roadmap
+
+---
+
 ## [0.3.1] — 2026-04-08
 
 ### Fixed
