@@ -4,6 +4,7 @@
  */
 
 export { analyse, analyseAll } from './analyser/index.js';
+export { loadPlugins } from './plugin-loader.js';
 export { applyFixes } from './fixer.js';
 export type { FixResult } from './fixer.js';
 export { initFile, templateFor } from './init.js';
@@ -26,6 +27,7 @@ export type {
   Issue,
   LLMProvider,
   ParsedFile,
+  PluginRule,
   RuleId,
   Section,
   Severity,

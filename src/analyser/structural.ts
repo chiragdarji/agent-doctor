@@ -16,13 +16,17 @@ import {
   hardcodedEnvironment,
   missingToolList,
 } from '../rules/structural/index.js';
-import type { Config, Issue, ParsedFile, StructuralRule } from '../types.js';
+import type { Config, Issue, ParsedFile, PluginRule, StructuralRule } from '../types.js';
 
 /**
- * Runs all structural rules against a parsed file and returns matching issues.
+ * Runs all structural rules (built-in + optional plugin rules) against a parsed file.
  * Rules disabled via `config.rules[ruleId] === 'off'` are filtered out.
  */
-export function runStructuralAnalysis(parsed: ParsedFile, config: Config): Issue[] {
+export function runStructuralAnalysis(
+  parsed: ParsedFile,
+  config: Config,
+  pluginRules: PluginRule[] = [],
+): Issue[] {
   const rules: StructuralRule[] = [
     // Format / frontmatter rules
     missingFrontmatter,
@@ -49,7 +53,8 @@ export function runStructuralAnalysis(parsed: ParsedFile, config: Config): Issue
   // Pass rawContent so frontmatter-aware rules (missing-frontmatter, missing-always-apply)
   // can inspect the full file, while section-based rules parse from the raw text safely
   // (frontmatter lines don't match the heading regex so they're treated as preamble).
-  return rules
-    .flatMap((rule) => rule(parsed.rawContent, parsed.filePath))
-    .filter((issue) => config.rules[issue.ruleId] !== 'off');
+  return [
+    ...rules.flatMap((rule) => rule(parsed.rawContent, parsed.filePath)),
+    ...pluginRules.flatMap((rule) => rule(parsed.rawContent, parsed.filePath)),
+  ].filter((issue) => config.rules[issue.ruleId] !== 'off');
 }

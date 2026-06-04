@@ -4,6 +4,28 @@ All notable changes to `agent-doctor` are documented here.
 
 ---
 
+## [0.5.0] — 2026-06-04
+
+### Added
+
+**Custom rule plugins** — extend agent-doctor with your own structural rules via `.agentdoctor.json`:
+
+```json
+{ "plugins": ["./rules/no-emoji.js", "@my-org/agent-doctor-rules"] }
+```
+
+- Relative paths (starting with `./`) resolve from the directory where you run the CLI
+- Bare specifiers are treated as package names resolved via Node's normal module resolution
+- Each plugin module may export a **default function** (single rule) or **named functions** (multiple rules); any exported function is treated as a rule
+- Plugin rule IDs (`ruleId`) can be any string (e.g. `"my-org/no-emoji"`) — they are not required to be built-in identifiers
+- Plugin rules can be turned off via `config.rules` exactly like built-in rules: `"my-org/no-emoji": "off"`
+- Invalid plugins and load errors are skipped with a warning — analysis continues on the remaining files
+- `loadPlugins(paths, cwd)` exported from the programmatic API for custom integrations
+- `PluginRule` type exported for authoring typed plugins in TypeScript
+- `RuleId` type now accepts arbitrary strings alongside the well-known built-in identifiers (preserves IDE autocomplete for known values)
+
+---
+
 ## [0.4.0] — 2026-06-04
 
 ### Added

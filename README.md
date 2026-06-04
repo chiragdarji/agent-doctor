@@ -472,6 +472,69 @@ interface Issue {
 
 ---
 
+## Custom Rule Plugins
+
+You can ship your own structural rules as a plugin — no fork needed.
+
+### 1. Write a plugin module
+
+```js
+// rules/no-emoji.js  (ESM)
+export default function noEmoji(content, filePath) {
+  const emojiPattern = /\p{Emoji}/u;
+  if (emojiPattern.test(content)) {
+    return [{
+      ruleId: 'my-org/no-emoji',
+      severity: 'warning',
+      message: 'Emoji found in instruction file',
+      suggestion: 'Replace emoji with plain text — some agents strip them',
+    }];
+  }
+  return [];
+}
+```
+
+A plugin module may export:
+- A **default function** (single rule)
+- **Named functions** (multiple rules — every exported function is treated as a rule)
+
+Each rule receives `(content: string, filePath: string)` and returns an `Issue[]`-shaped array. The `ruleId` can be any string; namespacing with `my-org/` is recommended to avoid collisions.
+
+### 2. Register in `.agentdoctor.json`
+
+```json
+{
+  "plugins": [
+    "./rules/no-emoji.js",
+    "@my-org/agent-doctor-rules"
+  ]
+}
+```
+
+Relative paths resolve from the directory where you run the CLI. Bare specifiers are resolved as npm packages.
+
+### 3. Disable a plugin rule
+
+```json
+{
+  "rules": {
+    "my-org/no-emoji": "off"
+  }
+}
+```
+
+Plugin rule IDs work identically to built-in rule IDs in `config.rules`.
+
+### TypeScript plugin authoring
+
+```typescript
+import type { PluginRule } from '@chiragdarji/agent-doctor';
+
+export const noEmoji: PluginRule = (content) => { ... };
+```
+
+---
+
 ## Adding a New Structural Rule
 
 1. Create `src/rules/structural/<rule-id>.ts`:
@@ -531,9 +594,9 @@ All analysis runs locally. Nothing is stored or cached.
 - [x] Ollama / local LLM support via `provider: "openai-compatible"` + `baseURL`
 - [x] Cursor semantic skill (`skills/cursor-semantic-analysis/SKILL.md`)
 - [x] `--watch` mode (re-analyse on save)
-- [ ] `--init` scaffold generator (create a well-structured CLAUDE.md template)
-- [ ] Cross-file conflict detection (CLAUDE.md vs AGENTS.md)
-- [ ] Custom rule plugins
+- [x] `--init` scaffold generator (CLAUDE.md, AGENTS.md, Cursor .mdc templates)
+- [x] Cross-file conflict detection (CLAUDE.md vs AGENTS.md)
+- [x] Custom rule plugins
 - [ ] VS Code extension (inline diagnostics)
 - [x] Native GitHub Actions action (`chiragdarji/agent-doctor@v1`)
 

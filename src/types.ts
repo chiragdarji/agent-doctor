@@ -2,7 +2,8 @@ export type Severity = 'critical' | 'warning' | 'suggestion';
 
 export type Grade = 'A' | 'B' | 'C' | 'D' | 'F';
 
-export type RuleId =
+/** Well-known rule identifiers — listed for IDE autocomplete and compile-time checks. */
+type KnownRuleId =
   // Semantic rules (single-file)
   | 'decision-loop'
   | 'vague-boundary'
@@ -33,6 +34,13 @@ export type RuleId =
   | 'missing-success-criteria'
   | 'hardcoded-environment'
   | 'missing-tool-list';
+
+/**
+ * Rule identifier. Well-known values are listed for autocomplete; plugin rules
+ * may use any string (e.g. `'my-org/no-emoji'`).
+ */
+// eslint-disable-next-line @typescript-eslint/ban-types
+export type RuleId = KnownRuleId | (string & {});
 
 export interface Issue {
   ruleId: RuleId;
@@ -120,6 +128,8 @@ export interface Config {
   tokenBudgetWarning: number;
   ignore: string[];
   failOn: Severity;
+  /** Paths to custom rule plugin modules. Relative paths resolve from cwd. */
+  plugins: string[];
 }
 
 export const DEFAULT_CONFIG: Config = {
@@ -129,7 +139,11 @@ export const DEFAULT_CONFIG: Config = {
   tokenBudgetWarning: 500,
   ignore: [],
   failOn: 'critical',
+  plugins: [],
 };
 
 /** Signature every structural rule must follow. */
 export type StructuralRule = (content: string, filePath: string) => Issue[];
+
+/** Signature for custom plugin rules. Same as StructuralRule but ruleId may be any string. */
+export type PluginRule = StructuralRule;
