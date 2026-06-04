@@ -64,9 +64,9 @@ Each task is scoped to a single commit. Check the box and push when done.
 - [x] **3A.5** Document plugin authoring in README — "Custom Rule Plugins" section with JS example, named exports, TypeScript typing
 
 ### 3B — `--readiness-report` command
-- [ ] **3B.1** Add `--readiness-report` flag to CLI — outputs a full human-readable breakdown of the 5 readiness dimensions with per-dimension guidance
-- [ ] **3B.2** Create `src/output/readiness-reporter.ts` — formats `ReadinessDimensions` into actionable advice sections (e.g. "Observable: 60/100 — Add success criteria to 2 task sections")
-- [ ] **3B.3** Add tests in `tests/readiness-reporter.test.ts`
+- [x] **3B.1** Add `--readiness-report` flag to CLI — outputs per-dimension breakdown; compatible with `--all` and `--watch`
+- [x] **3B.2** Create `src/output/readiness-reporter.ts` — summary table + per-dimension detail with issue grouping; aggregate section for multi-file
+- [x] **3B.3** Add tests in `tests/readiness-reporter.test.ts` — 18 tests covering shape, all-green path, per-dimension grouping, multi-file aggregate
 
 ### 3C — VS Code extension
 - [ ] **3C.1** Create `packages/vscode-agent-doctor/` subdirectory with `package.json` for VS Code extension
@@ -115,4 +115,4 @@ Types: `docs` · `feat` · `fix` · `test` · `refactor` · `chore`
 
 ---
 
-_Last updated: 2026-06-04 — Phase 1 complete, Phase 2 complete, Phase 3A complete_
+_Last updated: 2026-06-04 — Phase 1 complete, Phase 2 complete, Phase 3A+3B complete_

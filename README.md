@@ -305,6 +305,7 @@ Options:
   --model <id>            Override LLM model (e.g. gpt-4o, claude-opus-4-5)
   --fail-on <severity>    Exit code 1 if issues at this level (default: critical)
   --format <format>       Output format: text | json (default: text)
+  --readiness-report      Detailed per-dimension readiness breakdown instead of issue list
   --fix                   Auto-fix structural issues in-place
   --dry-run               Preview --fix changes without writing to disk
   --watch                 Re-run analysis on every file save — Ctrl+C to stop

@@ -4,6 +4,26 @@ All notable changes to `agent-doctor` are documented here.
 
 ---
 
+## [0.6.0] — 2026-06-04
+
+### Added
+
+**`--readiness-report` flag** — replaces the standard issue list with a full per-dimension readiness breakdown:
+
+```bash
+npx @chiragdarji/agent-doctor CLAUDE.md --readiness-report
+npx @chiragdarji/agent-doctor --all --readiness-report
+```
+
+- Summary table showing all 5 dimensions (Observable / Bounded / Reversible / Tooled / Documented) with score, fill bar, and pass/warn indicator
+- Per-dimension detail section: pass message when ≥ 85, fail message + grouped issues when below threshold
+- Issues are listed under every dimension they affect (`cross-file-conflict` appears under both Bounded and Documented)
+- Multi-file (`--all`): per-file reports followed by an aggregate section averaging all dimension scores
+- Compatible with `--watch` (readiness report refreshes on every save)
+- `formatReadinessReport(results)` exported from the programmatic API
+
+---
+
 ## [0.5.0] — 2026-06-04
 
 ### Added
