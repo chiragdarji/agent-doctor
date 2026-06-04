@@ -7,6 +7,7 @@ import { analyse, analyseAll } from './analyser/index.js';
 import { loadConfig } from './config.js';
 import { discoverFiles } from './discovery.js';
 import { applyFixes } from './fixer.js';
+import { initFile } from './init.js';
 import {
   formatResult,
   formatResults,
@@ -14,6 +15,7 @@ import {
   formatResultsJson,
 } from './output/formatter.js';
 import type { AnalysisResult, Severity } from './types.js';
+import type { InitType } from './init.js';
 
 const program = new Command();
 
@@ -37,6 +39,9 @@ program
   .option('--fix', 'Auto-fix structural issues in-place (todo-in-instructions, unclosed-code-block, empty-section, missing-success-criteria)')
   .option('--dry-run', 'Preview --fix changes without writing to disk')
   .option('--watch', 'Re-run analysis on every file save — Ctrl+C to stop (single file only)')
+  .option('--init', 'Scaffold a new agent instruction file template in the current directory')
+  .option('--type <type>', 'Template type for --init: claude | cursor | agents', 'claude')
+  .option('--force', 'Overwrite existing files without prompting (use with --init)')
   .option('--mcp', 'Start MCP server mode (v0.2)')
   .action(async (file: string | undefined, opts: {
     all?: boolean;
@@ -47,8 +52,29 @@ program
     fix?: boolean;
     dryRun?: boolean;
     watch?: boolean;
+    init?: boolean;
+    type: string;
+    force?: boolean;
     mcp?: boolean;
   }) => {
+    if (opts.init) {
+      const VALID_TYPES: InitType[] = ['claude', 'cursor', 'agents'];
+      const initType: InitType = VALID_TYPES.includes(opts.type as InitType)
+        ? (opts.type as InitType)
+        : 'claude';
+
+      try {
+        const result = await initFile({ type: initType, cwd: process.cwd(), force: opts.force ?? false });
+        const verb = result.existed ? 'Overwrote' : 'Created';
+        process.stdout.write(`✅  ${verb} ${result.filePath}\n`);
+        process.stdout.write(`    Run \`npx @chiragdarji/agent-doctor ${result.filePath}\` to validate.\n`);
+      } catch (err) {
+        process.stderr.write(`${String(err)}\n`);
+        process.exit(1);
+      }
+      return;
+    }
+
     if (opts.mcp) {
       // Spawn the MCP server entry point from the same dist directory
       const mcpEntry = join(dirname(fileURLToPath(import.meta.url)), 'mcp-server.js');
