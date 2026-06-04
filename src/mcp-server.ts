@@ -28,7 +28,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { analyse, analyseCrossFile, computeReadiness } from './analyser/index.js';
+import { analyse, computeReadiness } from './analyser/index.js';
 import { analyseSemantics } from './analyser/semantic.js';
 import {
   createAnthropicClient,
@@ -40,7 +40,6 @@ import { loadConfig } from './config.js';
 import { parseFile } from './parser/index.js';
 import { multiFileSemantics } from './analyser/multi-file-semantic.js';
 import { runStructuralAnalysis } from './analyser/structural.js';
-import { formatResultJson } from './output/formatter.js';
 import type { LLMClient } from './analyser/llm-client.js';
 import type { AnalysisResult, Config, RuleId, Severity } from './types.js';
 
@@ -97,7 +96,7 @@ function strArg(args: unknown, key: string): string | undefined {
 
 /** Extracts a string[] argument safely from MCP args. Returns [] if absent. */
 function strArrayArg(args: unknown, key: string): string[] {
-  if (args !== null && typeof args === 'object' && key in (args as object)) {
+  if (args !== null && typeof args === 'object' && key in args) {
     const val = (args as Record<string, unknown>)[key];
     if (Array.isArray(val)) {
       return val.filter((v): v is string => typeof v === 'string' && v.length > 0);
@@ -246,13 +245,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       if (
         args !== null &&
         typeof args === 'object' &&
-        'layers' in (args as object) &&
-        Array.isArray((args as Record<string, unknown>)['layers'])
+        'layers' in args &&
+        Array.isArray(args['layers'])
       ) {
-        config.layers = (args as Record<string, unknown>)['layers'] as (
-          | 'structural'
-          | 'semantic'
-        )[];
+        config.layers = args['layers'] as ('structural' | 'semantic')[];
       }
 
       // Resolve LLM client from tool inputs or env
