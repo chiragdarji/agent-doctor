@@ -105,6 +105,28 @@ describe('applyPlatformOverrides', () => {
     expect(result[0]!.severity).toBe('warning');
   });
 
+  it('upgrades missing-frontmatter to critical on cursor', () => {
+    const issue: Issue = {
+      ruleId: 'missing-frontmatter',
+      severity: 'warning',
+      message: 'No YAML frontmatter found',
+      suggestion: 'Add frontmatter block',
+    };
+    const result = applyPlatformOverrides([issue], 'cursor');
+    expect(result[0]!.severity).toBe('critical');
+  });
+
+  it('does not change missing-frontmatter severity on non-cursor platforms', () => {
+    const issue: Issue = {
+      ruleId: 'missing-frontmatter',
+      severity: 'warning',
+      message: 'No YAML frontmatter found',
+      suggestion: 'Add frontmatter block',
+    };
+    const result = applyPlatformOverrides([issue], 'anthropic');
+    expect(result[0]!.severity).toBe('warning');
+  });
+
   it('leaves rules without overrides unchanged', () => {
     const issue: Issue = {
       ruleId: 'duplicate-heading',

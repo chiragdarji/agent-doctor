@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 
 const WELL_KNOWN_FILES = [
@@ -93,15 +93,13 @@ export function discoverOrgFiles(
       }
     }
 
-    // Recurse into subdirectories
+    // Recurse into subdirectories (withFileTypes avoids a separate statSync per entry)
     try {
-      for (const entry of readdirSync(dir)) {
-        if (SKIP_DIRS.has(entry)) continue;
-        const full = join(dir, entry);
-        try {
-          if (statSync(full).isDirectory()) walk(full, depth + 1);
-        } catch {
-          // Unreadable — skip
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (SKIP_DIRS.has(entry.name)) continue;
+        // Use isSymbolicLink check to avoid following symlinks into cycles
+        if (entry.isDirectory() && !entry.isSymbolicLink()) {
+          walk(join(dir, entry.name), depth + 1);
         }
       }
     } catch {

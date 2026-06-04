@@ -3,7 +3,7 @@ export type Severity = 'critical' | 'warning' | 'suggestion';
 export type Grade = 'A' | 'B' | 'C' | 'D' | 'F';
 
 /** Well-known rule identifiers — listed for IDE autocomplete and compile-time checks. */
-type KnownRuleId =
+export type KnownRuleId =
   // Semantic rules (single-file)
   | 'decision-loop'
   | 'vague-boundary'

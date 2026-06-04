@@ -1,10 +1,14 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { extname, dirname, relative, resolve } from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { parseMarkdownContent } from '../parser/markdown.js';
 import { parseMdcContent } from '../parser/mdc.js';
 import { runStructuralAnalysis } from './structural.js';
 import { calculateScore, calculateGrade, computeReadiness } from './index.js';
 import type { Config, Grade } from '../types.js';
+
+const execFileAsync = promisify(execFile);
 
 export interface HistoryEntry {
   commit: string;
@@ -30,15 +34,14 @@ export async function runHistory(
   n: number = 10,
 ): Promise<HistoryEntry[]> {
   const absPath = resolve(process.cwd(), filePath);
-  // Detect the git root from the file's own directory so fixture repos in /tmp work too
+  // Detect git root from the file's directory so fixture repos in /tmp work correctly
   const fileDir = dirname(absPath);
 
   let gitRoot: string;
   try {
-    gitRoot = execSync('git rev-parse --show-toplevel', {
+    gitRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], {
       encoding: 'utf8',
       cwd: fileDir,
-      stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
   } catch {
     throw new Error('Not a git repository — --history requires git');
@@ -48,9 +51,11 @@ export async function runHistory(
 
   let logOutput: string;
   try {
-    logOutput = execSync(
-      `git log --format="%H|%ai|%s" -n ${n} -- "${gitRelPath}"`,
-      { encoding: 'utf8', cwd: gitRoot, stdio: ['ignore', 'pipe', 'ignore'] },
+    // Use execFileSync (no shell) to avoid injection via gitRelPath
+    logOutput = execFileSync(
+      'git',
+      ['log', '--format=%H|%ai|%s', `-n`, String(n), '--', gitRelPath],
+      { encoding: 'utf8', cwd: gitRoot },
     ).trim();
   } catch {
     throw new Error(`Failed to read git log for ${filePath}`);
@@ -58,39 +63,58 @@ export async function runHistory(
 
   if (!logOutput) return [];
 
-  const isMdc = extname(filePath).toLowerCase() === '.mdc';
-  const structuralConfig = { ...config, layers: ['structural'] as Config['layers'] };
-  const entries: HistoryEntry[] = [];
-
+  // Parse commit metadata from log lines
+  interface CommitMeta { hash: string; date: string; subject: string }
+  const commits: CommitMeta[] = [];
   for (const line of logOutput.split('\n')) {
     if (!line.trim()) continue;
     const pipeIdx = line.indexOf('|');
     const pipe2Idx = line.indexOf('|', pipeIdx + 1);
     if (pipeIdx < 0 || pipe2Idx < 0) continue;
 
-    const hash = line.slice(0, pipeIdx);
-    const dateRaw = line.slice(pipeIdx + 1, pipe2Idx);
-    const subject = line.slice(pipe2Idx + 1).trim();
-    const date = dateRaw.split(' ')[0] ?? dateRaw;
+    commits.push({
+      hash: line.slice(0, pipeIdx),
+      date: (line.slice(pipeIdx + 1, pipe2Idx).split(' ')[0] ?? '').trim(),
+      subject: line.slice(pipe2Idx + 1).trim(),
+    });
+  }
 
-    let rawContent: string;
-    try {
-      rawContent = execSync(`git show "${hash}":"${gitRelPath}"`, {
+  // Fetch all file snapshots in parallel (no shell — execFile with args array)
+  const contents = await Promise.all(
+    commits.map(({ hash }) =>
+      execFileAsync('git', ['show', `${hash}:${gitRelPath}`], {
         encoding: 'utf8',
         cwd: gitRoot,
-        stdio: ['ignore', 'pipe', 'ignore'],
-      });
-    } catch {
-      continue;
-    }
+      })
+        .then(({ stdout }) => stdout)
+        .catch(() => null),
+    ),
+  );
 
+  const isMdc = extname(filePath).toLowerCase() === '.mdc';
+  const structuralConfig = { ...config, layers: ['structural'] as Config['layers'] };
+  const entries: HistoryEntry[] = [];
+
+  for (let i = 0; i < commits.length; i++) {
+    const rawContent = contents[i];
+    if (rawContent == null) continue;
+
+    const { hash, date, subject } = commits[i]!;
     const parsed = isMdc
       ? parseMdcContent(filePath, rawContent)
       : parseMarkdownContent(filePath, rawContent);
 
-    const issues = runStructuralAnalysis(parsed, structuralConfig);
+    // Pass empty pluginRules — history mode is structural-only, no plugin loading needed
+    const issues = runStructuralAnalysis(parsed, structuralConfig, []);
     const score = calculateScore(issues);
     const { readinessScore } = computeReadiness(issues);
+
+    let criticalCount = 0;
+    let warningCount = 0;
+    for (const issue of issues) {
+      if (issue.severity === 'critical') criticalCount++;
+      else if (issue.severity === 'warning') warningCount++;
+    }
 
     entries.push({
       commit: hash.slice(0, 7),
@@ -99,8 +123,8 @@ export async function runHistory(
       score,
       grade: calculateGrade(score),
       issueCount: issues.length,
-      criticalCount: issues.filter((i) => i.severity === 'critical').length,
-      warningCount: issues.filter((i) => i.severity === 'warning').length,
+      criticalCount,
+      warningCount,
       readinessScore,
     });
   }

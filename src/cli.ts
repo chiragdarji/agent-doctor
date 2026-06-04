@@ -49,7 +49,7 @@ program
   .option('--type <type>', 'Template type for --init: claude | cursor | agents', 'claude')
   .option('--force', 'Overwrite existing files without prompting (use with --init)')
   .option('--readiness-report', 'Print a detailed per-dimension readiness breakdown instead of the standard issue list')
-  .option('--history [n]', 'Show score trend for the last n git commits (default: 10)', '10')
+  .option('--history [n]', 'Show score trend for the last n git commits (default: 10)')
   .option('--org [dir]', 'Org-level health dashboard — recursively discovers all instruction files under dir (default: cwd)')
   .option('--mcp', 'Start MCP server mode (v0.2)')
   .action(async (file: string | undefined, opts: {
@@ -65,7 +65,7 @@ program
     type: string;
     force?: boolean;
     readinessReport?: boolean;
-    history?: string;
+    history?: string | boolean;
     org?: string | boolean;
     mcp?: boolean;
   }) => {
@@ -107,7 +107,9 @@ program
         process.exit(2);
       }
       const cwd = process.cwd();
-      const n = Math.max(1, parseInt(opts.history, 10) || 10);
+      const n = typeof opts.history === 'string'
+        ? Math.max(1, parseInt(opts.history, 10) || 10)
+        : 10;
       const config = loadConfig(cwd);
       try {
         const filePath = resolve(cwd, file);
@@ -130,7 +132,11 @@ program
         ? resolve(cwd, opts.org)
         : cwd;
       const config = loadConfig(cwd);
+      if (opts.model !== undefined && opts.model.length > 0) config.model = opts.model;
       config.layers = ['structural'];
+      if (opts.format !== 'json') {
+        process.stderr.write(chalk.dim('ℹ  --org runs structural analysis only (no LLM cost)\n'));
+      }
       const discovered = discoverOrgFiles(orgRoot);
       if (discovered.length === 0) {
         process.stdout.write(chalk.yellow('No agent instruction files found.\n'));

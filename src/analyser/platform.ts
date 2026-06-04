@@ -1,4 +1,4 @@
-import type { FileType, Issue, RuleId, Severity } from '../types.js';
+import type { FileType, Issue, KnownRuleId, Severity } from '../types.js';
 
 export type TargetPlatform =
   | 'anthropic'
@@ -32,7 +32,7 @@ export function detectPlatform(fileType: FileType): TargetPlatform {
 
 // Platform-specific suggestion overrides per rule
 const PLATFORM_SUGGESTIONS: Partial<
-  Record<RuleId, Partial<Record<TargetPlatform, string>>>
+  Record<KnownRuleId, Partial<Record<TargetPlatform, string>>>
 > = {
   'missing-tool-list': {
     anthropic:
@@ -78,7 +78,7 @@ const PLATFORM_SUGGESTIONS: Partial<
 
 // Platform-specific severity overrides per rule
 const PLATFORM_SEVERITY_OVERRIDES: Partial<
-  Record<RuleId, Partial<Record<TargetPlatform, Severity>>>
+  Record<KnownRuleId, Partial<Record<TargetPlatform, Severity>>>
 > = {
   // On Cursor, missing alwaysApply causes the rule to be silently skipped — treat as critical
   'missing-always-apply': {
@@ -98,8 +98,9 @@ export function applyPlatformOverrides(issues: Issue[], platform: TargetPlatform
   if (platform === 'unknown') return issues;
 
   return issues.map((issue) => {
-    const suggestionOverride = PLATFORM_SUGGESTIONS[issue.ruleId]?.[platform];
-    const severityOverride = PLATFORM_SEVERITY_OVERRIDES[issue.ruleId]?.[platform];
+    const ruleId = issue.ruleId as KnownRuleId;
+    const suggestionOverride = PLATFORM_SUGGESTIONS[ruleId]?.[platform];
+    const severityOverride = PLATFORM_SEVERITY_OVERRIDES[ruleId]?.[platform];
 
     if (!suggestionOverride && !severityOverride) return issue;
 

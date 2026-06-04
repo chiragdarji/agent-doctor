@@ -1,13 +1,6 @@
 import chalk from 'chalk';
+import { gradeColour, scoreColour } from './colours.js';
 import type { HistoryEntry } from '../analyser/history.js';
-
-function gradeColour(grade: string): string {
-  if (grade === 'A') return chalk.green(grade);
-  if (grade === 'B') return chalk.cyan(grade);
-  if (grade === 'C') return chalk.yellow(grade);
-  if (grade === 'D') return chalk.magenta(grade);
-  return chalk.red(grade);
-}
 
 function scoreTrend(entries: HistoryEntry[]): string {
   if (entries.length < 2) return '';
@@ -56,14 +49,7 @@ export function formatHistory(entries: HistoryEntry[], filePath: string): string
 
   for (const entry of entries) {
     const scoreStr = String(entry.score).padStart(COL.score);
-    const scoreColoured =
-      entry.score >= 90
-        ? chalk.green(scoreStr)
-        : entry.score >= 75
-          ? chalk.cyan(scoreStr)
-          : entry.score >= 60
-            ? chalk.yellow(scoreStr)
-            : chalk.red(scoreStr);
+    const scoreColoured = scoreColour(entry.score, scoreStr);
 
     const issueStr =
       entry.criticalCount > 0
@@ -78,7 +64,7 @@ export function formatHistory(entries: HistoryEntry[], filePath: string): string
         : entry.subject;
 
     lines.push(
-      `${chalk.dim(entry.commit)}  ${chalk.dim(entry.date)}  ${scoreColoured}  ${gradeColour(entry.grade)}  ${String(entry.readinessScore).padStart(COL.readiness)}  ${issueStr}  ${chalk.dim(subjectTrunc)}`,
+      `${chalk.dim(entry.commit)}  ${chalk.dim(entry.date)}  ${scoreColoured}  ${gradeColour(entry.grade)}  ${String(entry.readinessScore).padStart(4)}  ${issueStr}  ${chalk.dim(subjectTrunc)}`,
     );
   }
 

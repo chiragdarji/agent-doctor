@@ -1,5 +1,6 @@
 import chalk from 'chalk';
 import { basename, relative } from 'node:path';
+import { avgNums, avgDimensions, gradeColour, scoreColour } from './colours.js';
 import type { AnalysisResult, Grade, ReadinessDimensions } from '../types.js';
 
 interface FileGroup {
@@ -7,37 +8,11 @@ interface FileGroup {
   results: AnalysisResult[];
   avgScore: number;
   avgReadiness: number;
-  avgDimensions: ReadinessDimensions;
+  avgDims: ReadinessDimensions;
   grades: Record<Grade, number>;
 }
 
-function avg(nums: number[]): number {
-  if (nums.length === 0) return 100;
-  return Math.round(nums.reduce((a, b) => a + b, 0) / nums.length);
-}
-
-function avgDims(results: AnalysisResult[]): ReadinessDimensions {
-  const keys: Array<keyof ReadinessDimensions> = [
-    'observable',
-    'bounded',
-    'reversible',
-    'tooled',
-    'documented',
-  ];
-  const dims: ReadinessDimensions = {
-    observable: 100,
-    bounded: 100,
-    reversible: 100,
-    tooled: 100,
-    documented: 100,
-  };
-  for (const key of keys) {
-    dims[key] = avg(results.map((r) => r.readinessDimensions[key]));
-  }
-  return dims;
-}
-
-function gradeColour(grade: string, count: number): string {
+function gradeCount(grade: string, count: number): string {
   if (count === 0) return chalk.dim('0');
   if (grade === 'A') return chalk.green(String(count));
   if (grade === 'B') return chalk.cyan(String(count));
@@ -78,9 +53,9 @@ function groupByType(results: AnalysisResult[]): FileGroup[] {
     return {
       label,
       results: res,
-      avgScore: avg(res.map((r) => r.score)),
-      avgReadiness: avg(res.map((r) => r.readinessScore)),
-      avgDimensions: avgDims(res),
+      avgScore: avgNums(res.map((r) => r.score)),
+      avgReadiness: avgNums(res.map((r) => r.readinessScore)),
+      avgDims: avgDimensions(res),
       grades,
     };
   });
@@ -120,21 +95,11 @@ export function formatOrgReport(
   lines.push(chalk.dim('─'.repeat(72)));
 
   for (const g of groups) {
-    const scoreStr =
-      g.avgScore >= 85
-        ? chalk.green(String(g.avgScore).padStart(3))
-        : g.avgScore >= 60
-          ? chalk.yellow(String(g.avgScore).padStart(3))
-          : chalk.red(String(g.avgScore).padStart(3));
-    const rdnsStr =
-      g.avgReadiness >= 85
-        ? chalk.green(String(g.avgReadiness).padStart(3))
-        : g.avgReadiness >= 60
-          ? chalk.yellow(String(g.avgReadiness).padStart(3))
-          : chalk.red(String(g.avgReadiness).padStart(3));
+    const scoreStr = scoreColour(g.avgScore, String(g.avgScore).padStart(3));
+    const rdnsStr = scoreColour(g.avgReadiness, String(g.avgReadiness).padStart(3));
 
     lines.push(
-      `${g.label.padEnd(26)}${String(g.results.length).padStart(6)}  ${scoreStr}${''.padEnd(7)}${rdnsStr}${''.padEnd(7)}${gradeColour('A', g.grades.A).padStart(3)}${gradeColour('B', g.grades.B).padStart(3)}${gradeColour('C', g.grades.C).padStart(3)}${gradeColour('D', g.grades.D).padStart(3)}${gradeColour('F', g.grades.F).padStart(3)}`,
+      `${g.label.padEnd(26)}${String(g.results.length).padStart(6)}  ${scoreStr}${''.padEnd(7)}${rdnsStr}${''.padEnd(7)}${gradeCount('A', g.grades.A).padStart(3)}${gradeCount('B', g.grades.B).padStart(3)}${gradeCount('C', g.grades.C).padStart(3)}${gradeCount('D', g.grades.D).padStart(3)}${gradeCount('F', g.grades.F).padStart(3)}`,
     );
   }
 
@@ -144,35 +109,27 @@ export function formatOrgReport(
   const overall: FileGroup = {
     label: 'ALL',
     results,
-    avgScore: avg(results.map((r) => r.score)),
-    avgReadiness: avg(results.map((r) => r.readinessScore)),
-    avgDimensions: avgDims(results),
+    avgScore: avgNums(results.map((r) => r.score)),
+    avgReadiness: avgNums(results.map((r) => r.readinessScore)),
+    avgDims: avgDimensions(results),
     grades: { A: 0, B: 0, C: 0, D: 0, F: 0 },
   };
   for (const r of results) overall.grades[r.grade]++;
 
   lines.push(chalk.bold('Overall readiness dimensions'));
   lines.push('');
-  lines.push(formatDimensionRow('Observable', overall.avgDimensions.observable));
-  lines.push(formatDimensionRow('Bounded', overall.avgDimensions.bounded));
-  lines.push(formatDimensionRow('Reversible', overall.avgDimensions.reversible));
-  lines.push(formatDimensionRow('Tooled', overall.avgDimensions.tooled));
-  lines.push(formatDimensionRow('Documented', overall.avgDimensions.documented));
+  lines.push(formatDimensionRow('Observable', overall.avgDims.observable));
+  lines.push(formatDimensionRow('Bounded', overall.avgDims.bounded));
+  lines.push(formatDimensionRow('Reversible', overall.avgDims.reversible));
+  lines.push(formatDimensionRow('Tooled', overall.avgDims.tooled));
+  lines.push(formatDimensionRow('Documented', overall.avgDims.documented));
   lines.push('');
   lines.push(
     chalk.bold('Overall avg score: ') +
-      (overall.avgScore >= 85
-        ? chalk.green(String(overall.avgScore))
-        : overall.avgScore >= 60
-          ? chalk.yellow(String(overall.avgScore))
-          : chalk.red(String(overall.avgScore))) +
+      scoreColour(overall.avgScore) +
       chalk.dim('  |  ') +
       chalk.bold('Avg readiness: ') +
-      (overall.avgReadiness >= 85
-        ? chalk.green(String(overall.avgReadiness))
-        : overall.avgReadiness >= 60
-          ? chalk.yellow(String(overall.avgReadiness))
-          : chalk.red(String(overall.avgReadiness))),
+      scoreColour(overall.avgReadiness),
   );
   lines.push('');
 
@@ -181,12 +138,7 @@ export function formatOrgReport(
   lines.push('');
   for (const r of results) {
     const rel = relative(root, r.file) || basename(r.file);
-    const scoreStr =
-      r.score >= 85
-        ? chalk.green(String(r.score).padStart(3))
-        : r.score >= 60
-          ? chalk.yellow(String(r.score).padStart(3))
-          : chalk.red(String(r.score).padStart(3));
+    const scoreStr = scoreColour(r.score, String(r.score).padStart(3));
     const issueStr =
       r.issues.length === 0
         ? chalk.green('✓')
@@ -206,21 +158,21 @@ export function formatOrgReportJson(
   root: string,
 ): string {
   const groups = groupByType(results);
-  const allDims = avgDims(results);
+  const allDims = avgDimensions(results);
 
   return JSON.stringify(
     {
       root,
       fileCount: results.length,
-      avgScore: avg(results.map((r) => r.score)),
-      avgReadiness: avg(results.map((r) => r.readinessScore)),
+      avgScore: avgNums(results.map((r) => r.score)),
+      avgReadiness: avgNums(results.map((r) => r.readinessScore)),
       avgDimensions: allDims,
       byType: groups.map((g) => ({
         type: g.label,
         count: g.results.length,
         avgScore: g.avgScore,
         avgReadiness: g.avgReadiness,
-        avgDimensions: g.avgDimensions,
+        avgDimensions: g.avgDims,
         grades: g.grades,
       })),
       files: results.map((r) => ({
