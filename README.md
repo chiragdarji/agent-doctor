@@ -4,10 +4,10 @@
 > Finds the instructions that will silently break your agent — before your agent runs.
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
-![npm](https://img.shields.io/badge/npm-0.3.1-black)
+![npm](https://img.shields.io/badge/npm-0.4.0-black)
 ![MCP](https://img.shields.io/badge/MCP-server-purple)
-![Tests](https://img.shields.io/badge/tests-233%20passing-brightgreen)
-![Rules](https://img.shields.io/badge/rules-13%20structural%20%2B%208%20semantic-blue)
+![Tests](https://img.shields.io/badge/tests-258%20passing-brightgreen)
+![Rules](https://img.shields.io/badge/rules-16%20structural%20%2B%2010%20semantic-blue)
 
 <br/>
 
