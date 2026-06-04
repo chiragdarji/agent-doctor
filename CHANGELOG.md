@@ -4,6 +4,66 @@ All notable changes to `agent-doctor` are documented here.
 
 ---
 
+## [0.7.0] — 2026-06-04
+
+### Added
+
+**VS Code extension** — `packages/vscode-agent-doctor/`
+
+- On-save structural analysis (16 rules, zero API cost) for `CLAUDE.md`, `AGENTS.md`, `.mdc`, `GEMINI.md`
+- Diagnostics appear in the Problems panel and as inline squiggles
+- Severity controlled by `agentDoctor.failOnSeverity` (default: `critical` → error, others → warning/hint)
+- **Quick Fix** code actions for 4 auto-fixable rules: `todo-in-instructions`, `unclosed-code-block`, `empty-section`, `missing-success-criteria` — applied via `WorkspaceEdit` with full undo support
+- Command: **Agent Doctor: Run Full Analysis** — runs structural + semantic (LLM) analysis on the active file; prompts for API key if missing
+- Command: **Agent Doctor: Run Structural Analysis** — force-refreshes structural diagnostics
+- Settings: `anthropicApiKey`, `openaiApiKey`, `model`, `enableOnSave`, `failOnSeverity`
+- Built with esbuild (CJS bundle, 675KB); tiktoken replaced with a lightweight character stub so no native binaries are required
+- Publish with: `cd packages/vscode-agent-doctor && npm install && npm run package`
+
+---
+
+## [0.6.0] — 2026-06-04
+
+### Added
+
+**`--readiness-report` flag** — replaces the standard issue list with a full per-dimension readiness breakdown:
+
+```bash
+npx @chiragdarji/agent-doctor CLAUDE.md --readiness-report
+npx @chiragdarji/agent-doctor --all --readiness-report
+```
+
+- Summary table showing all 5 dimensions (Observable / Bounded / Reversible / Tooled / Documented) with score, fill bar, and pass/warn indicator
+- Per-dimension detail section: pass message when ≥ 85, fail message + grouped issues when below threshold
+- Issues are listed under every dimension they affect (`cross-file-conflict` appears under both Bounded and Documented)
+- Multi-file (`--all`): per-file reports followed by an aggregate section averaging all dimension scores
+- Compatible with `--watch` (readiness report refreshes on every save)
+- `formatReadinessReport(results)` exported from the programmatic API
+
+---
+
+## [0.5.0] — 2026-06-04
+
+### Added
+
+**Custom rule plugins** — extend agent-doctor with your own structural rules via `.agentdoctor.json`:
+
+```json
+{ "plugins": ["./rules/no-emoji.js", "@my-org/agent-doctor-rules"] }
+```
+
+- Relative paths (starting with `./`) resolve from the directory where you run the CLI
+- Bare specifiers are treated as package names resolved via Node's normal module resolution
+- Each plugin module may export a **default function** (single rule) or **named functions** (multiple rules); any exported function is treated as a rule
+- Plugin rule IDs (`ruleId`) can be any string (e.g. `"my-org/no-emoji"`) — they are not required to be built-in identifiers
+- Plugin rules can be turned off via `config.rules` exactly like built-in rules: `"my-org/no-emoji": "off"`
+- Invalid plugins and load errors are skipped with a warning — analysis continues on the remaining files
+- `loadPlugins(paths, cwd)` exported from the programmatic API for custom integrations
+- `PluginRule` type exported for authoring typed plugins in TypeScript
+- `RuleId` type now accepts arbitrary strings alongside the well-known built-in identifiers (preserves IDE autocomplete for known values)
+
+---
+
 ## [0.4.0] — 2026-06-04
 
 ### Added

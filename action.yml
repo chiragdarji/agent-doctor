@@ -1,4 +1,4 @@
-name: agent-doctor
+name: Agent Readiness Doctor
 description: Semantic health check for AI agent instruction files (CLAUDE.md, AGENTS.md, Cursor rules, etc.)
 author: chiragdarji
 

@@ -15,6 +15,7 @@ import {
   formatResultJson,
   formatResultsJson,
 } from './output/formatter.js';
+import { formatReadinessReport } from './output/readiness-reporter.js';
 import type { AnalysisResult, Severity } from './types.js';
 import type { InitType } from './init.js';
 
@@ -43,6 +44,7 @@ program
   .option('--init', 'Scaffold a new agent instruction file template in the current directory')
   .option('--type <type>', 'Template type for --init: claude | cursor | agents', 'claude')
   .option('--force', 'Overwrite existing files without prompting (use with --init)')
+  .option('--readiness-report', 'Print a detailed per-dimension readiness breakdown instead of the standard issue list')
   .option('--mcp', 'Start MCP server mode (v0.2)')
   .action(async (file: string | undefined, opts: {
     all?: boolean;
@@ -56,6 +58,7 @@ program
     init?: boolean;
     type: string;
     force?: boolean;
+    readinessReport?: boolean;
     mcp?: boolean;
   }) => {
     if (opts.init) {
@@ -169,6 +172,8 @@ program
           ? formatResultJson(results[0]!)
           : formatResultsJson(results)) + '\n',
       );
+    } else if (opts.readinessReport) {
+      process.stdout.write(formatReadinessReport(results) + '\n');
     } else {
       process.stdout.write(
         (results.length === 1 ? formatResult(results[0]!) : formatResults(results)) + '\n',
@@ -201,7 +206,9 @@ program
               process.stdout.write(
                 opts.format === 'json'
                   ? formatResultJson(refreshed) + '\n'
-                  : formatResult(refreshed) + '\n',
+                  : opts.readinessReport
+                    ? formatReadinessReport([refreshed]) + '\n'
+                    : formatResult(refreshed) + '\n',
               );
             } catch (err) {
               process.stderr.write(`Error re-analysing: ${String(err)}\n`);

@@ -57,23 +57,23 @@ Each task is scoped to a single commit. Check the box and push when done.
 > Goal: extend reach — integrate agent-doctor into more surfaces.
 
 ### 3A — Custom rule plugins
-- [ ] **3A.1** Define plugin interface in `src/types.ts` — `StructuralPlugin { ruleId: string; rule: StructuralRule }[]`
-- [ ] **3A.2** Update `src/config.ts` — add optional `plugins: string[]` field (paths to JS/TS rule files)
-- [ ] **3A.3** Update `src/analyser/structural.ts` — dynamically `import()` plugin files and append to rules array
-- [ ] **3A.4** Add tests in `tests/plugins.test.ts` — write a fixture plugin file, verify it fires correctly
-- [ ] **3A.5** Document plugin authoring in README with a minimal example
+- [x] **3A.1** Define plugin interface in `src/types.ts` — `PluginRule = StructuralRule` alias; `plugins: string[]` added to `Config` and `DEFAULT_CONFIG`
+- [x] **3A.2** Update `src/config.ts` — `plugins` key parsed automatically via spread merge in `loadConfig`; `src/plugin-loader.ts` created for dynamic imports
+- [x] **3A.3** Update `src/analyser/structural.ts` — accepts `pluginRules: PluginRule[]`; `src/analyser/index.ts` calls `loadPlugins()` once per `analyse`/`analyseAll`
+- [x] **3A.4** Add tests in `tests/plugin-loader.test.ts` — fixture plugins in `tests/fixtures/plugins/`; 13 tests covering load, fire, turn-off, skip-invalid
+- [x] **3A.5** Document plugin authoring in README — "Custom Rule Plugins" section with JS example, named exports, TypeScript typing
 
 ### 3B — `--readiness-report` command
-- [ ] **3B.1** Add `--readiness-report` flag to CLI — outputs a full human-readable breakdown of the 5 readiness dimensions with per-dimension guidance
-- [ ] **3B.2** Create `src/output/readiness-reporter.ts` — formats `ReadinessDimensions` into actionable advice sections (e.g. "Observable: 60/100 — Add success criteria to 2 task sections")
-- [ ] **3B.3** Add tests in `tests/readiness-reporter.test.ts`
+- [x] **3B.1** Add `--readiness-report` flag to CLI — outputs per-dimension breakdown; compatible with `--all` and `--watch`
+- [x] **3B.2** Create `src/output/readiness-reporter.ts` — summary table + per-dimension detail with issue grouping; aggregate section for multi-file
+- [x] **3B.3** Add tests in `tests/readiness-reporter.test.ts` — 18 tests covering shape, all-green path, per-dimension grouping, multi-file aggregate
 
 ### 3C — VS Code extension
-- [ ] **3C.1** Create `packages/vscode-agent-doctor/` subdirectory with `package.json` for VS Code extension
-- [ ] **3C.2** Implement `extension.ts` — on-save diagnostic provider that runs structural rules (zero API cost) against active `.md` / `.mdc` files
-- [ ] **3C.3** Implement inline code actions — "Apply fix" for auto-fixable rules
-- [ ] **3C.4** Add semantic analysis on-demand via command palette ("agent-doctor: Run full analysis")
-- [ ] **3C.5** Publish to VS Code Marketplace
+- [x] **3C.1** Created `packages/vscode-agent-doctor/` with `package.json`, `tsconfig.json`, `esbuild.mjs`, `.vscodeignore`, `README.md`
+- [x] **3C.2** `src/extension.ts` + `src/diagnostics.ts` — on-save DiagnosticCollection provider, structural analysis on open/save, clears on close
+- [x] **3C.3** `src/code-actions.ts` — `AgentDoctorCodeActionProvider` + `applyFix` command using `dryRun` preview + `WorkspaceEdit` for proper undo
+- [x] **3C.4** `DiagnosticsProvider.runFullAnalysis()` — command palette entry; resolves LLM client from settings/env, prompts if missing, shows progress notification
+- [ ] **3C.5** Publish to VS Code Marketplace — run `cd packages/vscode-agent-doctor && npm install && npm run package` then upload `.vsix` at marketplace.visualstudio.com
 
 ---
 
@@ -115,4 +115,4 @@ Types: `docs` · `feat` · `fix` · `test` · `refactor` · `chore`
 
 ---
 
-_Last updated: 2026-06-04_
+_Last updated: 2026-06-04 — Phase 1 complete, Phase 2 complete, Phase 3A+3B+3C(code) complete; 3C.5 (Marketplace publish) pending_

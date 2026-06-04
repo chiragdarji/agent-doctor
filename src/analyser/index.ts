@@ -2,6 +2,7 @@ import { parseFile } from '../parser/index.js';
 import { runStructuralAnalysis } from './structural.js';
 import { analyseSemantics } from './semantic.js';
 import { multiFileSemantics } from './multi-file-semantic.js';
+import { loadPlugins } from '../plugin-loader.js';
 import type { FileContent } from './multi-file-semantic.js';
 import type { LLMClient } from './llm-client.js';
 import type {
@@ -10,6 +11,7 @@ import type {
   Config,
   Grade,
   Issue,
+  PluginRule,
   ReadinessDimensions,
   RuleId,
   Severity,
@@ -17,15 +19,37 @@ import type {
 
 /**
  * Analyses a single instruction file and returns a full AnalysisResult.
- * Runs the layers specified in `config.layers`.
+ * Runs the layers specified in `config.layers`. Plugins from `config.plugins`
+ * are loaded on first call (Node's module cache prevents redundant re-imports).
  */
 export async function analyse(filePath: string, config: Config): Promise<AnalysisResult> {
+  const pluginRules = await loadPlugins(config.plugins, process.cwd());
+  return _analyse(filePath, config, pluginRules);
+}
+
+/**
+ * Analyses multiple files and returns one AnalysisResult per file.
+ * Plugins are loaded once and reused for every file.
+ */
+export async function analyseAll(
+  filePaths: string[],
+  config: Config,
+): Promise<AnalysisResult[]> {
+  const pluginRules = await loadPlugins(config.plugins, process.cwd());
+  return Promise.all(filePaths.map((fp) => _analyse(fp, config, pluginRules)));
+}
+
+async function _analyse(
+  filePath: string,
+  config: Config,
+  pluginRules: PluginRule[],
+): Promise<AnalysisResult> {
   const parsed = parseFile(filePath);
   const issues: Issue[] = [];
   const usedLayers: AnalysisLayer[] = [];
 
   if (config.layers.includes('structural')) {
-    issues.push(...runStructuralAnalysis(parsed, config));
+    issues.push(...runStructuralAnalysis(parsed, config, pluginRules));
     usedLayers.push('structural');
   }
 
@@ -50,16 +74,6 @@ export async function analyse(filePath: string, config: Config): Promise<Analysi
     readinessScore,
     readinessDimensions,
   };
-}
-
-/**
- * Analyses multiple files and returns one AnalysisResult per file.
- */
-export async function analyseAll(
-  filePaths: string[],
-  config: Config,
-): Promise<AnalysisResult[]> {
-  return Promise.all(filePaths.map((fp) => analyse(fp, config)));
 }
 
 /**

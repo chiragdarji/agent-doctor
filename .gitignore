@@ -1,8 +1,9 @@
 # Dependencies
 node_modules/
 
-# Build output
-dist/
+# Build output — dist/ is committed so the GitHub Action works without a build step
+# Source maps are excluded to keep the repo lean
+dist/*.map
 
 # Environment
 .env

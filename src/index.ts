@@ -4,6 +4,7 @@
  */
 
 export { analyse, analyseAll } from './analyser/index.js';
+export { loadPlugins } from './plugin-loader.js';
 export { applyFixes } from './fixer.js';
 export type { FixResult } from './fixer.js';
 export { initFile, templateFor } from './init.js';
@@ -15,6 +16,7 @@ export { runStructuralAnalysis } from './analyser/structural.js';
 export { analyseSemantics } from './analyser/semantic.js';
 export { createAnthropicClient, createOpenAIClient, createOpenAICompatibleClient, createClientFromConfig, inferProvider, resolveProvider } from './analyser/llm-client.js';
 export { formatResult, formatResults, formatResultJson, formatResultsJson } from './output/formatter.js';
+export { formatReadinessReport } from './output/readiness-reporter.js';
 export { countTokens } from './tokens.js';
 
 export type {
@@ -26,6 +28,7 @@ export type {
   Issue,
   LLMProvider,
   ParsedFile,
+  PluginRule,
   RuleId,
   Section,
   Severity,
