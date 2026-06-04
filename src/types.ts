@@ -12,7 +12,6 @@ export type RuleId =
   | 'contradiction'
   | 'ambiguous-pronoun'
   | 'over-permissive'
-  | 'cross-file-conflict'
   | 'missing-recovery-strategy'
   | 'unobservable-outcome'
   // Structural rules
