@@ -326,6 +326,8 @@ Options:
 
 ### GitHub Actions
 
+One-line setup using the native action:
+
 ```yaml
 # .github/workflows/agent-doctor.yml
 name: Agent Instructions Health Check
@@ -337,6 +339,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: chiragdarji/agent-doctor@v1
+        with:
+          fail-on: warning
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}   # optional
+```
+
+Available inputs:
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `files` | _(auto-detect)_ | Space-separated file paths to analyse |
+| `fail-on` | `critical` | Severity threshold for non-zero exit |
+| `structural-only` | `false` | Skip LLM layer — no API key needed |
+| `model` | `claude-sonnet-4-6` | Override LLM model |
+| `anthropic-api-key` | — | Falls back to `ANTHROPIC_API_KEY` env var |
+| `openai-api-key` | — | Falls back to `OPENAI_API_KEY` env var |
+
+Action outputs: `score`, `grade`, `issues-count`, `readiness-score`.
+
+Or use `npx` directly:
+
+```yaml
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -511,6 +535,7 @@ All analysis runs locally. Nothing is stored or cached.
 - [ ] Cross-file conflict detection (CLAUDE.md vs AGENTS.md)
 - [ ] Custom rule plugins
 - [ ] VS Code extension (inline diagnostics)
+- [x] Native GitHub Actions action (`chiragdarji/agent-doctor@v1`)
 
 ---
 
