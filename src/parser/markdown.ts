@@ -44,14 +44,21 @@ export function detectFileType(filePath: string): FileType {
  */
 export function parseMarkdown(filePath: string): ParsedFile {
   const raw = readFileSync(filePath, 'utf8');
-  const { content, data } = parseFrontmatter(raw);
+  return parseMarkdownContent(filePath, raw);
+}
+
+/**
+ * Parses Markdown content supplied directly (e.g. from `git show`) without reading from disk.
+ */
+export function parseMarkdownContent(filePath: string, rawContent: string): ParsedFile {
+  const { content, data } = parseFrontmatter(rawContent);
   const sections = parseSections(content);
   const hasFrontmatter = Object.keys(data).length > 0;
 
   return {
     filePath,
     fileType: detectFileType(filePath),
-    rawContent: raw,
+    rawContent: rawContent,
     content,
     ...(hasFrontmatter ? { frontmatter: data } : {}),
     sections,

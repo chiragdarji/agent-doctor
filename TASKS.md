@@ -82,19 +82,19 @@ Each task is scoped to a single commit. Check the box and push when done.
 > Goal: make agent-doctor smarter over time.
 
 ### 4A — Score trending via git
-- [ ] **4A.1** Implement `--history [n]` flag — walks last n git commits, runs structural analysis at each, outputs score trend table
-- [ ] **4A.2** Add `--history --format json` for CI integration
-- [ ] **4A.3** Add tests using a fixture git repo
+- [x] **4A.1** Implement `--history [n]` flag — walks last n git commits, runs structural analysis at each, outputs score trend table
+- [x] **4A.2** Add `--history --format json` for CI integration
+- [x] **4A.3** Add tests using a fixture git repo
 
 ### 4B — Model-aware analysis
-- [ ] **4B.1** Detect which AI platform the file targets from filename/content (CLAUDE.md → Anthropic, AGENTS.md → OpenAI, .mdc → Cursor)
-- [ ] **4B.2** Adjust rule sensitivities and suggestions based on target platform (e.g. `alwaysApply` frontmatter is Cursor-specific, not relevant for CLAUDE.md)
-- [ ] **4B.3** Add platform-specific suggestions to issue messages where applicable
+- [x] **4B.1** Detect which AI platform the file targets from filename/content (CLAUDE.md → Anthropic, AGENTS.md → OpenAI, .mdc → Cursor)
+- [x] **4B.2** Adjust rule sensitivities and suggestions based on target platform (e.g. `alwaysApply` frontmatter is Cursor-specific, not relevant for CLAUDE.md)
+- [x] **4B.3** Add platform-specific suggestions to issue messages where applicable
 
 ### 4C — Org-level health dashboard
-- [ ] **4C.1** Implement `--org` flag — discovers all instruction files across a local monorepo or multi-repo workspace
-- [ ] **4C.2** Output aggregate readiness scores by file type and dimension
-- [ ] **4C.3** Add `--format json` output for dashboard tooling
+- [x] **4C.1** Implement `--org` flag — discovers all instruction files across a local monorepo or multi-repo workspace
+- [x] **4C.2** Output aggregate readiness scores by file type and dimension
+- [x] **4C.3** Add `--format json` output for dashboard tooling
 
 ---
 
@@ -115,4 +115,4 @@ Types: `docs` · `feat` · `fix` · `test` · `refactor` · `chore`
 
 ---
 
-_Last updated: 2026-06-04 — Phase 1 complete, Phase 2 complete, Phase 3A+3B+3C(code) complete; 3C.5 (Marketplace publish) pending_
+_Last updated: 2026-06-04 — Phase 1 complete, Phase 2 complete, Phase 3 complete (3C.5 Marketplace publish pending), Phase 4A+4B+4C complete_

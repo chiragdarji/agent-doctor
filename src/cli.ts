@@ -1,3 +1,4 @@
+import chalk from 'chalk';
 import { Command } from 'commander';
 import { resolve, relative, dirname, join, basename } from 'node:path';
 import { existsSync, watch as fsWatch } from 'node:fs';
@@ -6,7 +7,7 @@ import { spawn } from 'node:child_process';
 import { analyse, analyseAll, analyseCrossFile } from './analyser/index.js';
 import { parseFile } from './parser/index.js';
 import { loadConfig } from './config.js';
-import { discoverFiles } from './discovery.js';
+import { discoverFiles, discoverOrgFiles } from './discovery.js';
 import { applyFixes } from './fixer.js';
 import { initFile } from './init.js';
 import {
@@ -16,6 +17,9 @@ import {
   formatResultsJson,
 } from './output/formatter.js';
 import { formatReadinessReport } from './output/readiness-reporter.js';
+import { formatOrgReport, formatOrgReportJson } from './output/org-reporter.js';
+import { runHistory } from './analyser/history.js';
+import { formatHistory, formatHistoryJson } from './output/history-reporter.js';
 import type { AnalysisResult, Severity } from './types.js';
 import type { InitType } from './init.js';
 
@@ -45,6 +49,8 @@ program
   .option('--type <type>', 'Template type for --init: claude | cursor | agents', 'claude')
   .option('--force', 'Overwrite existing files without prompting (use with --init)')
   .option('--readiness-report', 'Print a detailed per-dimension readiness breakdown instead of the standard issue list')
+  .option('--history [n]', 'Show score trend for the last n git commits (default: 10)')
+  .option('--org [dir]', 'Org-level health dashboard — recursively discovers all instruction files under dir (default: cwd)')
   .option('--mcp', 'Start MCP server mode (v0.2)')
   .action(async (file: string | undefined, opts: {
     all?: boolean;
@@ -59,6 +65,8 @@ program
     type: string;
     force?: boolean;
     readinessReport?: boolean;
+    history?: string | boolean;
+    org?: string | boolean;
     mcp?: boolean;
   }) => {
     if (opts.init) {
@@ -90,6 +98,61 @@ program
       const mcpEntry = join(dirname(fileURLToPath(import.meta.url)), 'mcp-server.js');
       const child = spawn(process.execPath, [mcpEntry], { stdio: 'inherit' });
       child.on('exit', (code) => process.exit(code ?? 0));
+      return;
+    }
+
+    if (opts.history !== undefined) {
+      if (file === undefined) {
+        process.stderr.write('--history requires a file argument, e.g.: agent-doctor CLAUDE.md --history\n');
+        process.exit(2);
+      }
+      const cwd = process.cwd();
+      const n = typeof opts.history === 'string'
+        ? Math.max(1, parseInt(opts.history, 10) || 10)
+        : 10;
+      const config = loadConfig(cwd);
+      try {
+        const filePath = resolve(cwd, file);
+        const entries = await runHistory(filePath, config, n);
+        if (opts.format === 'json') {
+          process.stdout.write(formatHistoryJson(entries, filePath) + '\n');
+        } else {
+          process.stdout.write(formatHistory(entries, filePath) + '\n');
+        }
+      } catch (err) {
+        process.stderr.write(`${String(err)}\n`);
+        process.exit(2);
+      }
+      return;
+    }
+
+    if (opts.org !== undefined) {
+      const cwd = process.cwd();
+      const orgRoot = typeof opts.org === 'string' && opts.org.length > 0
+        ? resolve(cwd, opts.org)
+        : cwd;
+      const config = loadConfig(cwd);
+      if (opts.model !== undefined && opts.model.length > 0) config.model = opts.model;
+      config.layers = ['structural'];
+      if (opts.format !== 'json') {
+        process.stderr.write(chalk.dim('ℹ  --org runs structural analysis only (no LLM cost)\n'));
+      }
+      const discovered = discoverOrgFiles(orgRoot);
+      if (discovered.length === 0) {
+        process.stdout.write(chalk.yellow('No agent instruction files found.\n'));
+        process.exit(0);
+      }
+      try {
+        const results = await analyseAll(discovered, config);
+        if (opts.format === 'json') {
+          process.stdout.write(formatOrgReportJson(results, orgRoot) + '\n');
+        } else {
+          process.stdout.write(formatOrgReport(results, orgRoot) + '\n');
+        }
+      } catch (err) {
+        process.stderr.write(`Error during org analysis: ${String(err)}\n`);
+        process.exit(2);
+      }
       return;
     }
 

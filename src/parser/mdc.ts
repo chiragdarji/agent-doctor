@@ -27,13 +27,20 @@ function parseFrontmatter(raw: string): { content: string; data: Record<string, 
  */
 export function parseMdc(filePath: string): ParsedFile {
   const raw = readFileSync(filePath, 'utf8');
-  const { content, data } = parseFrontmatter(raw);
+  return parseMdcContent(filePath, raw);
+}
+
+/**
+ * Parses .mdc content supplied directly (e.g. from `git show`) without reading from disk.
+ */
+export function parseMdcContent(filePath: string, rawContent: string): ParsedFile {
+  const { content, data } = parseFrontmatter(rawContent);
   const sections = parseSections(content);
 
   return {
     filePath,
     fileType: 'cursor-mdc',
-    rawContent: raw,
+    rawContent: rawContent,
     content,
     frontmatter: data,
     sections,

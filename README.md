@@ -309,9 +309,34 @@ Options:
   --fix                   Auto-fix structural issues in-place
   --dry-run               Preview --fix changes without writing to disk
   --watch                 Re-run analysis on every file save — Ctrl+C to stop
+  --history [n]           Score trend table across last n git commits (default: 10)
+  --org [dir]             Org-level health dashboard — recursively discovers all files under dir
   --mcp                   Start MCP server mode
   -V, --version           Show version number
   -h, --help              Show help
+```
+
+### Score history
+
+```bash
+# Show score trend for the last 10 commits
+npx @chiragdarji/agent-doctor CLAUDE.md --history
+
+# Last 20 commits, JSON output for CI
+npx @chiragdarji/agent-doctor CLAUDE.md --history 20 --format json
+```
+
+### Org-level dashboard
+
+```bash
+# Scan entire workspace
+npx @chiragdarji/agent-doctor --org
+
+# Scan a monorepo subdirectory
+npx @chiragdarji/agent-doctor --org ./packages
+
+# JSON output for dashboards
+npx @chiragdarji/agent-doctor --org --format json
 ```
 
 **Exit codes:**
@@ -598,8 +623,11 @@ All analysis runs locally. Nothing is stored or cached.
 - [x] `--init` scaffold generator (CLAUDE.md, AGENTS.md, Cursor .mdc templates)
 - [x] Cross-file conflict detection (CLAUDE.md vs AGENTS.md)
 - [x] Custom rule plugins
-- [ ] VS Code extension (inline diagnostics)
+- [x] VS Code extension (inline diagnostics, Quick Fix, semantic on demand)
 - [x] Native GitHub Actions action (`chiragdarji/agent-doctor@v1`)
+- [x] `--history [n]` — score trending across git commits
+- [x] Platform-aware analysis — suggestions adapt to Anthropic / OpenAI / Cursor / Gemini / Copilot
+- [x] `--org [dir]` — workspace-level health dashboard with per-dimension breakdown
 
 ---
 
