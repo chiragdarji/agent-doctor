@@ -8,6 +8,9 @@ const AUTO_FIXABLE = new Set([
   'unclosed-code-block',
   'empty-section',
   'missing-success-criteria',
+  'sensitive-data',
+  'missing-agent-persona',
+  'hardcoded-environment',
 ]);
 
 // ---------------------------------------------------------------------------

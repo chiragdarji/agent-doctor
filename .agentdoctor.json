@@ -1,4 +1,5 @@
 {
+  "$schema": "./agent-doctor.schema.json",
   "model": "claude-sonnet-4-6",
   "layers": ["structural", "semantic"],
   "rules": {},

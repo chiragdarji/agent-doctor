@@ -15,6 +15,11 @@ import {
   missingSuccessCriteria,
   hardcodedEnvironment,
   missingToolList,
+  sensitiveData,
+  missingAgentPersona,
+  redundantInstructions,
+  missingExamples,
+  instructionOrdering,
 } from '../rules/structural/index.js';
 import { detectPlatform, applyPlatformOverrides } from './platform.js';
 import type { Config, Issue, ParsedFile, PluginRule, StructuralRule } from '../types.js';
@@ -50,6 +55,12 @@ export function runStructuralAnalysis(
     missingSuccessCriteria,
     hardcodedEnvironment,
     missingToolList,
+    // v1.0.0 rules
+    sensitiveData,
+    missingAgentPersona,
+    redundantInstructions,
+    missingExamples,
+    instructionOrdering,
   ];
 
   // Pass rawContent so frontmatter-aware rules (missing-frontmatter, missing-always-apply)

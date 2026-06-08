@@ -4,6 +4,41 @@ All notable changes to `agent-doctor` are documented here.
 
 ---
 
+## [1.0.0] — 2026-06-08
+
+### Added
+
+**5 new structural rules** (zero API cost):
+
+| Rule | Severity | What it catches |
+|------|----------|----------------|
+| `sensitive-data` | critical | API keys, Bearer tokens, private key blocks, AWS/GitHub credentials hardcoded in instruction files |
+| `missing-agent-persona` | warning | Instruction files with no role/identity statement ("you are…", "your role is…") |
+| `redundant-instructions` | warning | Same directive repeated 3+ times (fuzzy word-overlap deduplication) |
+| `missing-examples` | suggestion | Complex multi-condition sections with no code block or inline example |
+| `instruction-ordering` | suggestion | Security/constraint headings buried after task sections |
+
+**Auto-fix expansion** — 3 new `--fix` targets:
+
+```bash
+npx @chiragdarji/agent-doctor CLAUDE.md --fix
+```
+
+- `sensitive-data` → redacts matched credentials with `[REDACTED]`
+- `missing-agent-persona` → prepends a persona stub at the top of the file
+- `hardcoded-environment` → replaces absolute paths with `$HOME` / `${PROJECT_ROOT}` / `$PORT`
+
+**VS Code extension v0.2.0** — Quick Fix support for 3 new rules:
+- `sensitive-data`, `missing-agent-persona`, `hardcoded-environment` added to Quick Fix code actions
+
+**`.agentdoctor.json` JSON Schema** (`agent-doctor.schema.json`) for IDE validation and autocomplete.
+
+### Changed
+
+- `package.json` version bumped to `1.0.0` — stable public API
+
+---
+
 ## [0.9.0] — 2026-06-08
 
 ### Added
@@ -28,11 +63,7 @@ npx @chiragdarji/agent-doctor CLAUDE.md --compare HEAD~1
 npx @chiragdarji/agent-doctor CLAUDE.md --compare AGENTS.md
 ```
 
-**Score badge** — auto-updating shields.io badge committed on every main push:
-
-```markdown
-![agent-doctor](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/chiragdarji/agent-doctor/main/badges/agent-doctor.json)
-```
+**Score badge** — auto-updating shields.io badge committed on every main push.
 
 **Pre-commit hook** — blocks commits with critical structural issues:
 

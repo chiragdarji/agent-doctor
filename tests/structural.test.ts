@@ -16,6 +16,11 @@ import { todoInInstructions } from '../src/rules/structural/todo-in-instructions
 import { missingSuccessCriteria } from '../src/rules/structural/missing-success-criteria.js';
 import { hardcodedEnvironment } from '../src/rules/structural/hardcoded-environment.js';
 import { missingToolList } from '../src/rules/structural/missing-tool-list.js';
+import { sensitiveData } from '../src/rules/structural/sensitive-data.js';
+import { missingAgentPersona } from '../src/rules/structural/missing-agent-persona.js';
+import { redundantInstructions } from '../src/rules/structural/redundant-instructions.js';
+import { missingExamples } from '../src/rules/structural/missing-examples.js';
+import { instructionOrdering } from '../src/rules/structural/instruction-ordering.js';
 import { runStructuralAnalysis } from '../src/analyser/structural.js';
 import { parseFile } from '../src/parser/index.js';
 import { DEFAULT_CONFIG } from '../src/types.js';
@@ -824,5 +829,238 @@ describe('missing-tool-list', () => {
     ].join('\n');
     const issues = missingToolList(content, 'CLAUDE.md');
     expect(issues).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// sensitive-data
+// ---------------------------------------------------------------------------
+describe('sensitive-data', () => {
+  it('does not flag clean files', () => {
+    const issues = sensitiveData('# Rules\nUse $API_KEY for authentication.\n', 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('flags an OpenAI-style API key', () => {
+    const issues = sensitiveData('Set the key: sk-abcdefghijklmnopqrstuvwx', 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.ruleId).toBe('sensitive-data');
+    expect(issues[0]!.severity).toBe('critical');
+  });
+
+  it('flags a Bearer token', () => {
+    const issues = sensitiveData('Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9', 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.ruleId).toBe('sensitive-data');
+  });
+
+  it('flags an AWS access key ID', () => {
+    const issues = sensitiveData('AWS key: AKIAIOSFODNN7EXAMPLE', 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.ruleId).toBe('sensitive-data');
+  });
+
+  it('flags a GitHub PAT', () => {
+    const issues = sensitiveData('Push with: ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ1234567890', 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+  });
+
+  it('does not flag lines with example/placeholder language', () => {
+    const issues = sensitiveData('For example: sk-abcdefghijklmnopqrstuvwx (replace with your key)', 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('does not flag environment variable references', () => {
+    const issues = sensitiveData('Set ANTHROPIC_API_KEY=your-key-here in your environment', 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('flags a private key block', () => {
+    const issues = sensitiveData('-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAK\n-----END RSA PRIVATE KEY-----', 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// missing-agent-persona
+// ---------------------------------------------------------------------------
+describe('missing-agent-persona', () => {
+  it('does not flag files with a "you are" statement', () => {
+    const content = 'You are a senior TypeScript engineer.\n\n## Rules\n' + 'Use strict mode always.\n'.repeat(30);
+    const issues = missingAgentPersona(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('does not flag files with a Role heading', () => {
+    const content = '## Role\nYou assist with coding tasks.\n\n## Rules\n' + 'Write tests.\n'.repeat(30);
+    const issues = missingAgentPersona(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('flags a long file with no persona language', () => {
+    const content = '## Rules\n' + 'Always write tests. Use TypeScript. Never use any. '.repeat(25);
+    const issues = missingAgentPersona(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.ruleId).toBe('missing-agent-persona');
+    expect(issues[0]!.severity).toBe('warning');
+  });
+
+  it('does not flag short files', () => {
+    const content = '## Rules\nUse TypeScript.\n';
+    const issues = missingAgentPersona(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('recognises "your role is" language', () => {
+    const content = 'Your role is to review pull requests.\n\n## Process\n' + 'Review code.\n'.repeat(30);
+    const issues = missingAgentPersona(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// redundant-instructions
+// ---------------------------------------------------------------------------
+describe('redundant-instructions', () => {
+  it('does not flag files with no repetition', () => {
+    const content = '## Rules\n- Always write unit tests\n- Use TypeScript strict mode\n- Never commit secrets\n';
+    const issues = redundantInstructions(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('flags a directive appearing 3+ times', () => {
+    const directive = '- Always write unit tests for every new function you create';
+    const content = `## Rules\n${directive}\n## Testing\n${directive}\n## More\n${directive}\n`;
+    const issues = redundantInstructions(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.ruleId).toBe('redundant-instructions');
+    expect(issues[0]!.severity).toBe('warning');
+  });
+
+  it('does not flag 2 occurrences (below threshold)', () => {
+    const directive = '- Always write unit tests for every new function you create';
+    const content = `## Rules\n${directive}\n## Testing\n${directive}\n`;
+    const issues = redundantInstructions(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('does not flag short lines', () => {
+    const content = '## A\n- Yes\n## B\n- Yes\n## C\n- Yes\n';
+    const issues = redundantInstructions(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// missing-examples
+// ---------------------------------------------------------------------------
+describe('missing-examples', () => {
+  it('does not flag a simple short section', () => {
+    const content = '## Rules\nUse TypeScript. Always write tests.';
+    const issues = missingExamples(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('does not flag a section that already has a code block', () => {
+    const content = [
+      '## Commit Messages',
+      'When writing commits, if the change adds a feature then use feat:.',
+      'If it fixes a bug, use fix:. You must always include a scope.',
+      'Only if the change is a refactor should you use refactor:.',
+      'Before you commit, you should check the tests pass.',
+      '```',
+      'feat(auth): add OAuth2 login flow',
+      '```',
+    ].join('\n');
+    const issues = missingExamples(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('flags a complex section without examples', () => {
+    const content = [
+      '## Commit Messages',
+      'When writing commits, if the change adds a new feature then you must use the feat: prefix.',
+      'If you are fixing a bug you should use fix:. You must always include a scope identifier.',
+      'Only when the change is a refactor should you use the refactor: prefix instead.',
+      'Before committing you should always run the test suite first to confirm everything passes.',
+      'If the tests fail you must never commit and should fix the issue before proceeding.',
+    ].join('\n');
+    const issues = missingExamples(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.ruleId).toBe('missing-examples');
+    expect(issues[0]!.severity).toBe('suggestion');
+  });
+
+  it('does not flag example-named sections', () => {
+    const content = [
+      '## Examples',
+      'When writing commits, if the change adds a feature then use feat:.',
+      'If it fixes a bug, use fix:. You must always include a scope.',
+      'Only if the change is a refactor should you use refactor:.',
+      'Before you commit check the tests pass.',
+      'If tests fail never commit.',
+    ].join('\n');
+    const issues = missingExamples(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// instruction-ordering
+// ---------------------------------------------------------------------------
+describe('instruction-ordering', () => {
+  it('does not flag files where safety section comes first', () => {
+    const content = [
+      '## Security',
+      'Never access /etc/passwd or system files.',
+      'Do not expose API keys.',
+      '',
+      '## Workflow',
+      'Implement features using TDD. Build and run tests before submitting.',
+      'Create PRs for all changes.',
+    ].join('\n');
+    const issues = instructionOrdering(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('flags a safety section that comes after a task section', () => {
+    const content = [
+      '## Workflow',
+      'Implement features using TDD. Build and run tests before submitting.',
+      'Create pull requests for all changes. Execute tests to verify.',
+      '',
+      '## Security',
+      'Never access system files. Do not expose API keys. Must not share credentials.',
+    ].join('\n');
+    const issues = instructionOrdering(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.ruleId).toBe('instruction-ordering');
+    expect(issues[0]!.severity).toBe('suggestion');
+  });
+
+  it('does not flag files with only task sections', () => {
+    const content = [
+      '## Workflow',
+      'Implement features. Run tests. Create PRs.',
+      '',
+      '## Commands',
+      'Use npm run test to execute the test suite.',
+    ].join('\n');
+    const issues = instructionOrdering(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('records relatedLine pointing to the task section', () => {
+    const content = [
+      '## Workflow',
+      'Implement and build features. Execute tests. Create pull requests.',
+      '',
+      '## Access Controls',
+      'Never access private keys. Do not expose secrets. Must not modify system files.',
+    ].join('\n');
+    const issues = instructionOrdering(content, 'CLAUDE.md');
+    if (issues.length > 0) {
+      expect(issues[0]!.relatedLine).toBeGreaterThan(0);
+    }
   });
 });

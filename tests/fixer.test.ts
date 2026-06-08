@@ -233,6 +233,109 @@ describe('applyFixes — missing-success-criteria', () => {
 });
 
 // ---------------------------------------------------------------------------
+// sensitive-data
+// ---------------------------------------------------------------------------
+
+describe('applyFixes — sensitive-data', () => {
+  it('redacts an API key in the file', async () => {
+    const original = '# Config\n\nUse key: sk-abcdefghijklmnopqrstuvwxyz\n';
+    const fp = writeTmp('sensitive.md', original);
+    const result = await applyFixes(fp, [makeIssue('sensitive-data')]);
+    expect(result.fixed).toContain('sensitive-data');
+    const written = readTmp(fp);
+    expect(written).toContain('[REDACTED]');
+    expect(written).not.toContain('sk-abcdefghijklmnopqrstuvwxyz');
+  });
+
+  it('dry-run: returns preview without writing', async () => {
+    const original = '# Config\n\nToken: sk-abcdefghijklmnopqrstuvwxyz\n';
+    const fp = writeTmp('sensitive-dry.md', original);
+    const result = await applyFixes(fp, [makeIssue('sensitive-data')], { dryRun: true });
+    expect(result.fixed).toContain('sensitive-data');
+    expect(result.preview).toBeDefined();
+    expect(result.preview).toContain('[REDACTED]');
+    expect(readTmp(fp)).toBe(original);
+  });
+
+  it('reports as skipped when no sensitive-data issue', async () => {
+    const fp = writeTmp('clean-sensitive.md', '# Rules\nUse $API_KEY.\n');
+    const result = await applyFixes(fp, [makeIssue('todo-in-instructions')]);
+    expect(result.fixed).not.toContain('sensitive-data');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// missing-agent-persona
+// ---------------------------------------------------------------------------
+
+describe('applyFixes — missing-agent-persona', () => {
+  it('prepends a persona stub at the top of the file', async () => {
+    const original = '# Rules\n\nAlways write tests.\n';
+    const fp = writeTmp('no-persona.md', original);
+    const result = await applyFixes(fp, [makeIssue('missing-agent-persona')]);
+    expect(result.fixed).toContain('missing-agent-persona');
+    const written = readTmp(fp);
+    expect(written).toContain('You are a helpful AI assistant');
+    expect(written.indexOf('You are')).toBeLessThan(written.indexOf('# Rules'));
+  });
+
+  it('inserts persona after frontmatter in .mdc files', async () => {
+    const original = '---\nalwaysApply: true\n---\n# Rules\n\nContent.\n';
+    const fp = writeTmp('no-persona.mdc', original);
+    const result = await applyFixes(fp, [makeIssue('missing-agent-persona')]);
+    expect(result.fixed).toContain('missing-agent-persona');
+    const written = readTmp(fp);
+    expect(written).toContain('You are a helpful AI assistant');
+    // Persona should come after the frontmatter block
+    expect(written.indexOf('You are')).toBeGreaterThan(written.indexOf('---\n'));
+  });
+
+  it('dry-run: returns preview without writing', async () => {
+    const original = '# Rules\n\nContent.\n';
+    const fp = writeTmp('persona-dry.md', original);
+    const result = await applyFixes(fp, [makeIssue('missing-agent-persona')], { dryRun: true });
+    expect(result.preview).toBeDefined();
+    expect(result.preview).toContain('You are a helpful AI assistant');
+    expect(readTmp(fp)).toBe(original);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// hardcoded-environment
+// ---------------------------------------------------------------------------
+
+describe('applyFixes — hardcoded-environment', () => {
+  it('replaces /home/user paths with $HOME', async () => {
+    const original = '# Config\n\nRun from /home/chirag/projects/app.\n';
+    const fp = writeTmp('hardcoded.md', original);
+    const result = await applyFixes(fp, [makeIssue('hardcoded-environment')]);
+    expect(result.fixed).toContain('hardcoded-environment');
+    const written = readTmp(fp);
+    expect(written).toContain('$HOME');
+    expect(written).not.toContain('/home/chirag');
+  });
+
+  it('replaces localhost:PORT with localhost:$PORT', async () => {
+    const original = '# Config\n\nConnect to localhost:3000 for the dev server.\n';
+    const fp = writeTmp('localhost.md', original);
+    const result = await applyFixes(fp, [makeIssue('hardcoded-environment')]);
+    expect(result.fixed).toContain('hardcoded-environment');
+    const written = readTmp(fp);
+    expect(written).toContain('localhost:$PORT');
+    expect(written).not.toContain('localhost:3000');
+  });
+
+  it('dry-run: returns preview without writing', async () => {
+    const original = '# Guide\n\nPath is /etc/config.\n';
+    const fp = writeTmp('hardcoded-dry.md', original);
+    const result = await applyFixes(fp, [makeIssue('hardcoded-environment')], { dryRun: true });
+    expect(result.preview).toBeDefined();
+    expect(result.preview).not.toContain('/etc/config');
+    expect(readTmp(fp)).toBe(original);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // legacy-format (always skipped)
 // ---------------------------------------------------------------------------
 
