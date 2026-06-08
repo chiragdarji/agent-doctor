@@ -35,6 +35,8 @@ function fileTypeLabel(filePath: string): string {
   if (/^gemini\.md$/i.test(base)) return 'GEMINI.md';
   if (base.endsWith('.mdc')) return '.mdc';
   if (base === 'copilot-instructions.md') return 'copilot-instructions.md';
+  if (/^\.windsurfrules$/i.test(base)) return '.windsurfrules';
+  if (base.endsWith('.md') && filePath.includes('.roo/rules/')) return '.roo rule';
   return base;
 }
 

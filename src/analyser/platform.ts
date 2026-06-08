@@ -6,6 +6,7 @@ export type TargetPlatform =
   | 'cursor'
   | 'gemini'
   | 'github-copilot'
+  | 'windsurf'
   | 'unknown';
 
 /**
@@ -25,6 +26,9 @@ export function detectPlatform(fileType: FileType): TargetPlatform {
       return 'gemini';
     case 'copilot-instructions':
       return 'github-copilot';
+    case 'windsurf-rules':
+      return 'windsurf';
+    case 'roo-rule':
     default:
       return 'unknown';
   }

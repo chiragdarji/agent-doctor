@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
-import { extname, dirname, relative, resolve } from 'node:path';
+import { extname, dirname, relative, resolve, basename, join } from 'node:path';
 import { execFile } from 'node:child_process';
+import { realpathSync } from 'node:fs';
 import { promisify } from 'node:util';
 import { parseMarkdownContent } from '../parser/markdown.js';
 import { parseMdcContent } from '../parser/mdc.js';
@@ -33,7 +34,16 @@ export async function runHistory(
   config: Config,
   n: number = 10,
 ): Promise<HistoryEntry[]> {
-  const absPath = resolve(process.cwd(), filePath);
+  // Resolve symlinks on the parent directory (e.g. /var → /private/var on macOS) so
+  // that relative(gitRoot, absPath) produces the correct path on all platforms.
+  // We resolve the directory rather than the full path so non-existent files are handled.
+  const rawAbsPath = resolve(process.cwd(), filePath);
+  let absPath: string;
+  try {
+    absPath = join(realpathSync(dirname(rawAbsPath)), basename(rawAbsPath));
+  } catch {
+    absPath = rawAbsPath;
+  }
   // Detect git root from the file's directory so fixture repos in /tmp work correctly
   const fileDir = dirname(absPath);
 

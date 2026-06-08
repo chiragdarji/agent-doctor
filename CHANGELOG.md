@@ -39,6 +39,44 @@ npx @chiragdarji/agent-doctor CLAUDE.md --fix
 
 ---
 
+## [0.9.0] — 2026-06-08
+
+### Added
+
+**`--gate` flag** — structured pass/fail for orchestrator integration:
+
+```bash
+npx @chiragdarji/agent-doctor CLAUDE.md --gate
+npx @chiragdarji/agent-doctor --all --gate --fail-on warning
+```
+
+- Runs structural-only analysis (zero LLM cost)
+- Outputs machine-readable JSON: `{ "passed": bool, "score": N, "grade": "A", "readinessScore": N, "blockedBy": [...] }`
+- Exit 0 = safe to run, exit 1 = blocked
+- `--all` mode outputs `{ "passed": bool, "blockedFiles": N, "totalFiles": N, "files": [...] }`
+- Designed for agent orchestrators to call before starting an agent run
+
+**`--compare <ref>` flag** — side-by-side diff of two analysis results:
+
+```bash
+npx @chiragdarji/agent-doctor CLAUDE.md --compare HEAD~1
+npx @chiragdarji/agent-doctor CLAUDE.md --compare AGENTS.md
+```
+
+**Score badge** — auto-updating shields.io badge committed on every main push.
+
+**Pre-commit hook** — blocks commits with critical structural issues:
+
+```bash
+bash scripts/install-hook.sh
+```
+
+**New file format support:**
+- `.windsurfrules` — Windsurf IDE instruction files
+- `.roo/rules/*.md` — Roo-code agent rules
+
+---
+
 ## [0.8.0] — 2026-06-04
 
 ### Added

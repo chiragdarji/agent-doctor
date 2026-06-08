@@ -31,10 +31,14 @@ coverage/
 tmp/
 temp/
 
+# Claude Code agent worktrees (temporary isolated workspaces)
+.claude/worktrees/
+
 # VS Code extension packaging artifacts
 *.vsix
+# But track the published VSIX for download convenience
+!packages/vscode-agent-doctor/*.vsix
 
 # Lock files — commit package-lock.json, not yarn/pnpm
 yarn.lock
 pnpm-lock.yaml
-.claude/worktrees/

@@ -8,6 +8,7 @@
 ![MCP](https://img.shields.io/badge/MCP-server-purple)
 ![Tests](https://img.shields.io/badge/tests-258%20passing-brightgreen)
 ![Rules](https://img.shields.io/badge/rules-16%20structural%20%2B%2010%20semantic-blue)
+![agent-doctor](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/chiragdarji/agent-doctor/main/badges/agent-doctor.json)
 
 <br/>
 
