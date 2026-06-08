@@ -2709,6 +2709,8 @@ function detectFileType(filePath) {
   if (normalised.toLowerCase().endsWith("copilot-instructions.md")) return "copilot-instructions";
   if (/\.claude\/agents\//i.test(normalised) && base.endsWith(".md")) return "claude-agent";
   if (/\.claude\/commands\//i.test(normalised) && base.endsWith(".md")) return "claude-command";
+  if (/^\.windsurfrules$/i.test(base)) return "windsurf-rules";
+  if (/\.roo\/rules\//i.test(normalised) && base.endsWith(".md")) return "roo-rule";
   return "unknown";
 }
 function parseMarkdown(filePath) {
@@ -2764,6 +2766,7 @@ function parseFile(filePath) {
   const base = (0, import_node_path2.basename)(filePath);
   if (ext === ".mdc") return parseMdc(filePath);
   if (base === ".cursorrules") return parseMarkdown(filePath);
+  if (base === ".windsurfrules") return parseMarkdown(filePath);
   if (ext === ".md") return parseMarkdown(filePath);
   return parseMarkdown(filePath);
 }
@@ -3416,6 +3419,9 @@ function detectPlatform(fileType) {
       return "gemini";
     case "copilot-instructions":
       return "github-copilot";
+    case "windsurf-rules":
+      return "windsurf";
+    case "roo-rule":
     default:
       return "unknown";
   }
