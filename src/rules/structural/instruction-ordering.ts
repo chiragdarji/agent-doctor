@@ -8,9 +8,6 @@ import type { Issue, StructuralRule } from '../../types.js';
 const SAFETY_HEADING_RE =
   /\b(security|auth(?:orization|entication)?|permission|access|constraint|restrict|limit|boundary|never|forbidden|prohibited|off.?limit|guardrail|safe)\b/i;
 
-const SAFETY_CONTENT_RE =
-  /\b(never (access|modify|delete|share|expose|push|commit|run|execute)|do not (access|expose|delete|modify|share|commit|push)|must not|forbidden|not allowed|off.?limit|security boundary)\b/i;
-
 /**
  * Headings/content that signal a task or action section.
  * These are expected to appear after safety sections.
