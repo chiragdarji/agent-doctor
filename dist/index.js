@@ -24,7 +24,7 @@ import {
   parseSections,
   resolveProvider,
   runStructuralAnalysis
-} from "./chunk-PZKRE5FX.js";
+} from "./chunk-XX6OHGCO.js";
 
 // src/fixer.ts
 import { readFileSync, writeFileSync } from "fs";
@@ -364,12 +364,14 @@ var WELL_KNOWN_FILES = [
   "AGENTS.md",
   "GEMINI.md",
   ".github/copilot-instructions.md",
-  ".cursorrules"
+  ".cursorrules",
+  ".windsurfrules"
 ];
 var SCANNED_DIRS = [
   { dir: ".cursor/rules", ext: ".mdc" },
   { dir: ".claude/agents", ext: ".md" },
-  { dir: ".claude/commands", ext: ".md" }
+  { dir: ".claude/commands", ext: ".md" },
+  { dir: ".roo/rules", ext: ".md" }
 ];
 function discoverFiles(cwd = process.cwd()) {
   const files = [];
@@ -894,6 +896,8 @@ function fileTypeLabel(filePath) {
   if (/^gemini\.md$/i.test(base)) return "GEMINI.md";
   if (base.endsWith(".mdc")) return ".mdc";
   if (base === "copilot-instructions.md") return "copilot-instructions.md";
+  if (/^\.windsurfrules$/i.test(base)) return ".windsurfrules";
+  if (base.endsWith(".md") && filePath.includes(".roo/rules/")) return ".roo rule";
   return base;
 }
 function groupByType(results) {

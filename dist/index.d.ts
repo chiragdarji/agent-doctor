@@ -42,7 +42,7 @@ interface AnalysisResult {
     readinessDimensions: ReadinessDimensions;
 }
 type AnalysisLayer = 'structural' | 'semantic';
-type FileType = 'claude-md' | 'agents-md' | 'cursor-mdc' | 'gemini-md' | 'copilot-instructions' | 'claude-agent' | 'claude-command' | 'unknown';
+type FileType = 'claude-md' | 'agents-md' | 'cursor-mdc' | 'gemini-md' | 'copilot-instructions' | 'claude-agent' | 'claude-command' | 'windsurf-rules' | 'roo-rule' | 'unknown';
 interface ParsedFile {
     filePath: string;
     fileType: FileType;
@@ -323,7 +323,7 @@ interface HistoryEntry {
  */
 declare function runHistory(filePath: string, config: Config, n?: number): Promise<HistoryEntry[]>;
 
-type TargetPlatform = 'anthropic' | 'openai' | 'cursor' | 'gemini' | 'github-copilot' | 'unknown';
+type TargetPlatform = 'anthropic' | 'openai' | 'cursor' | 'gemini' | 'github-copilot' | 'windsurf' | 'unknown';
 /**
  * Maps the parsed file type to the AI platform the file is targeting.
  */

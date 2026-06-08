@@ -21,6 +21,7 @@ import { formatOrgReport, formatOrgReportJson } from './output/org-reporter.js';
 import { runHistory } from './analyser/history.js';
 import { formatHistory, formatHistoryJson } from './output/history-reporter.js';
 import { formatCompare, formatCompareJson } from './output/compare-reporter.js';
+import { evaluateGate, formatGateJson, formatOrgGateJson } from './output/gate-reporter.js';
 import type { AnalysisResult, Severity } from './types.js';
 import type { InitType } from './init.js';
 
@@ -53,6 +54,7 @@ program
   .option('--history [n]', 'Show score trend for the last n git commits (default: 10)')
   .option('--org [dir]', 'Org-level health dashboard — recursively discovers all instruction files under dir (default: cwd)')
   .option('--compare <ref>', 'Compare current file against a git ref (HEAD~1) or another file path')
+  .option('--gate', 'Orchestrator gate mode — structural-only check, JSON pass/fail, exit 0=safe exit 1=blocked')
   .option('--mcp', 'Start MCP server mode (v0.2)')
   .action(async (file: string | undefined, opts: {
     all?: boolean;
@@ -70,6 +72,7 @@ program
     history?: string | boolean;
     org?: string | boolean;
     compare?: string;
+    gate?: boolean;
     mcp?: boolean;
   }) => {
     if (opts.init) {
@@ -330,6 +333,20 @@ program
         process.stderr.write(`Error analysing ${found}: ${String(err)}\n`);
         process.exit(2);
       }
+    }
+
+    // Gate mode — structured pass/fail for orchestrator integration
+    if (opts.gate) {
+      const gateJson =
+        results.length === 1
+          ? formatGateJson(results[0]!, failOn)
+          : formatOrgGateJson(results, failOn);
+      process.stdout.write(gateJson + '\n');
+      const passed =
+        results.length === 1
+          ? evaluateGate(results[0]!, failOn).passed
+          : results.every((r) => evaluateGate(r, failOn).passed);
+      process.exit(passed ? 0 : 1);
     }
 
     // Output
