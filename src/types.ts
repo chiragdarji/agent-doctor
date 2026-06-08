@@ -33,7 +33,12 @@ export type KnownRuleId =
   | 'todo-in-instructions'
   | 'missing-success-criteria'
   | 'hardcoded-environment'
-  | 'missing-tool-list';
+  | 'missing-tool-list'
+  | 'sensitive-data'
+  | 'missing-agent-persona'
+  | 'redundant-instructions'
+  | 'missing-examples'
+  | 'instruction-ordering';
 
 /**
  * Rule identifier. Well-known values are listed for autocomplete; plugin rules

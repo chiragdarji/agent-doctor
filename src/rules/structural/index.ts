@@ -14,3 +14,8 @@ export { todoInInstructions } from './todo-in-instructions.js';
 export { missingSuccessCriteria } from './missing-success-criteria.js';
 export { hardcodedEnvironment } from './hardcoded-environment.js';
 export { missingToolList } from './missing-tool-list.js';
+export { sensitiveData } from './sensitive-data.js';
+export { missingAgentPersona } from './missing-agent-persona.js';
+export { redundantInstructions } from './redundant-instructions.js';
+export { missingExamples } from './missing-examples.js';
+export { instructionOrdering } from './instruction-ordering.js';

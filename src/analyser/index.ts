@@ -153,6 +153,12 @@ const READINESS_DEDUCTIONS: Partial<
   'empty-section': { documented: 10 },
   'ambiguous-pronoun': { documented: 10 },
   'cross-file-conflict': { bounded: 15, documented: 10 },
+  // v1.0.0 rules
+  'sensitive-data': { documented: 25, reversible: 15 },
+  'missing-agent-persona': { documented: 15, bounded: 10 },
+  'redundant-instructions': { documented: 10 },
+  'missing-examples': { documented: 10 },
+  'instruction-ordering': { reversible: 10, bounded: 10 },
 };
 
 /**
