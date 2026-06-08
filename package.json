@@ -1,6 +1,6 @@
 {
   "name": "@chiragdarji/agent-doctor",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Semantic health check for AI agent instruction files",
   "keywords": [
     "claude",
