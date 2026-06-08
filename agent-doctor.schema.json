@@ -1,0 +1,102 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/chiragdarji/agent-doctor/blob/main/agent-doctor.schema.json",
+  "title": "agent-doctor configuration",
+  "description": "Configuration for .agentdoctor.json — controls analysis layers, rule severities, token budget, and custom plugins.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "model": {
+      "type": "string",
+      "default": "claude-sonnet-4-6",
+      "description": "LLM model for semantic analysis. Provider is auto-detected from model name (gpt-*, o1-*, o3-*, o4-* → OpenAI; others → Anthropic).",
+      "examples": ["claude-sonnet-4-6", "claude-opus-4-8", "gpt-4o", "o3"]
+    },
+    "provider": {
+      "type": "string",
+      "enum": ["anthropic", "openai", "openai-compatible"],
+      "description": "Override the auto-detected LLM provider. Use 'openai-compatible' for Ollama, LM Studio, or any OpenAI-compatible endpoint."
+    },
+    "baseURL": {
+      "type": "string",
+      "description": "Base URL for OpenAI-compatible endpoints. Required when provider is 'openai-compatible'.",
+      "examples": ["http://localhost:11434/v1"]
+    },
+    "layers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["structural", "semantic"]
+      },
+      "default": ["structural", "semantic"],
+      "description": "Analysis layers to run. 'structural' is zero API cost. 'semantic' requires an LLM API key."
+    },
+    "rules": {
+      "type": "object",
+      "description": "Override severity for individual rules, or set to 'off' to disable.",
+      "additionalProperties": {
+        "type": "string",
+        "enum": ["critical", "warning", "suggestion", "off"]
+      },
+      "properties": {
+        "missing-frontmatter": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "unclosed-code-block": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "todo-in-instructions": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "sensitive-data": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "missing-always-apply": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "missing-description": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "conflicting-frontmatter": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "missing-file-glob": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "duplicate-heading": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "legacy-format": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "token-budget-exceeded": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "missing-success-criteria": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "hardcoded-environment": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "missing-tool-list": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "missing-agent-persona": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "redundant-instructions": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "missing-examples": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "instruction-ordering": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "empty-section": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "heading-depth-skip": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "negation-heavy": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "decision-loop": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "contradiction": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "vague-boundary": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "tool-mismatch": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "missing-fallback": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "scope-bleed": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "over-permissive": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "ambiguous-pronoun": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "missing-recovery-strategy": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] },
+        "unobservable-outcome": { "type": "string", "enum": ["critical", "warning", "suggestion", "off"] }
+      }
+    },
+    "tokenBudgetWarning": {
+      "type": "number",
+      "default": 500,
+      "description": "Maximum tokens per section before token-budget-exceeded fires.",
+      "minimum": 50
+    },
+    "ignore": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "Glob patterns for files to exclude from --all / --org discovery.",
+      "examples": [["**/node_modules/**", "**/dist/**"]]
+    },
+    "failOn": {
+      "type": "string",
+      "enum": ["critical", "warning", "suggestion"],
+      "default": "critical",
+      "description": "Minimum severity that causes a non-zero exit code."
+    },
+    "plugins": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "Paths to custom rule plugin modules. Relative paths resolve from the directory where agent-doctor is run.",
+      "examples": [["./rules/no-emoji.js", "@my-org/agent-doctor-rules"]]
+    }
+  }
+}

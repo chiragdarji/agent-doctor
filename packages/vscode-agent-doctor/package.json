@@ -2,7 +2,7 @@
   "name": "vscode-agent-doctor",
   "displayName": "Agent Doctor",
   "description": "Semantic health checks for AI agent instruction files (CLAUDE.md, AGENTS.md, .mdc, GEMINI.md)",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "chiragdarji",
   "license": "MIT",
   "homepage": "https://github.com/chiragdarji/agent-doctor",
