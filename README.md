@@ -4,10 +4,11 @@
 > Finds the instructions that will silently break your agent — before your agent runs.
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
-![npm](https://img.shields.io/badge/npm-0.4.0-black)
+![npm](https://img.shields.io/badge/npm-1.0.1-black)
 ![MCP](https://img.shields.io/badge/MCP-server-purple)
+![VS Code](https://img.shields.io/badge/VS%20Code-extension%200.2.1-blue)
 ![Tests](https://img.shields.io/badge/tests-258%20passing-brightgreen)
-![Rules](https://img.shields.io/badge/rules-16%20structural%20%2B%2010%20semantic-blue)
+![Rules](https://img.shields.io/badge/rules-21%20structural%20%2B%2010%20semantic-blue)
 ![agent-doctor](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/chiragdarji/agent-doctor/main/badges/agent-doctor.json)
 
 <br/>
@@ -106,13 +107,14 @@ Model         claude-sonnet-4-6
 
 `agent-doctor` runs two layers of analysis:
 
-### Layer 1 — Structural (16 rules, zero API cost)
+### Layer 1 — Structural (21 rules, zero API cost)
 
 | Rule | Severity | What it catches |
 |------|----------|----------------|
 | `missing-frontmatter` | critical | `.mdc` file missing `---` YAML block |
 | `unclosed-code-block` | critical | Odd ` ``` ` fences — rest of file read as code |
 | `todo-in-instructions` | critical | TODO/FIXME/PLACEHOLDER left in — agent follows literally |
+| `sensitive-data` | critical | API keys, Bearer tokens, AWS/GitHub credentials hardcoded in the file |
 | `missing-always-apply` | warning | `.mdc` where `alwaysApply` is not `true` |
 | `missing-description` | warning | `.mdc` with no `description` — Cursor can't match it contextually |
 | `conflicting-frontmatter` | warning | `alwaysApply: true` + `globs` set — globs silently ignored |
@@ -122,10 +124,14 @@ Model         claude-sonnet-4-6
 | `token-budget-exceeded` | warning | Section over configurable token threshold (default 500) |
 | `missing-success-criteria` | warning | Task section describes work but has no completion signal ("done when", "verify by", "tests pass") |
 | `hardcoded-environment` | warning | Absolute paths (`/home/user/…`, `C:\…`) or `localhost:PORT` tie instructions to one machine |
+| `missing-agent-persona` | warning | No "You are…" / "Your role is…" identity statement — agent has no grounding |
+| `redundant-instructions` | warning | Same directive repeated 3+ times (fuzzy word-overlap dedup) |
 | `empty-section` | suggestion | Heading with no content and no children |
 | `heading-depth-skip` | suggestion | `##` → `####` jump — breaks hierarchy agents use for scoping |
 | `negation-heavy` | suggestion | >60% "don't/never/avoid" bullets — rewrite as positive |
 | `missing-tool-list` | suggestion | File references tools by name but has no section enumerating them |
+| `missing-examples` | suggestion | Complex multi-condition sections with no code block or inline example |
+| `instruction-ordering` | suggestion | Security/constraint sections buried after task sections |
 
 ### Layer 2 — Semantic (10 rules, LLM-powered)
 
@@ -181,6 +187,8 @@ The readiness score is **derived from existing issue findings** — no extra API
 | `.github/copilot-instructions.md` | GitHub Copilot |
 | `.claude/agents/*.md` | Claude Code subagents |
 | `.claude/commands/*.md` | Claude Code slash commands |
+| `.windsurfrules` | Windsurf IDE |
+| `.roo/rules/*.md` | Roo-code |
 
 ---
 
@@ -252,6 +260,7 @@ Returns a built-in fix suggestion + LLM-generated before/after rewrite for a spe
 ```json
 // .agentdoctor.json
 {
+  "$schema": "./agent-doctor.schema.json",
   "model": "claude-sonnet-4-6",
   "layers": ["structural", "semantic"],
   "rules": {
@@ -264,6 +273,8 @@ Returns a built-in fix suggestion + LLM-generated before/after rewrite for a spe
   "failOn": "critical"
 }
 ```
+
+Add `"$schema": "./agent-doctor.schema.json"` for IDE autocomplete and inline validation of all config options. The schema file ships with the package.
 
 **Using OpenAI:**
 ```json
@@ -303,7 +314,7 @@ Arguments:
 Options:
   --all                   Discover and analyse all instruction files in the project
   --structural-only       Skip semantic layer — no API key required
-  --model <id>            Override LLM model (e.g. gpt-4o, claude-opus-4-5)
+  --model <id>            Override LLM model (e.g. gpt-4o, claude-opus-4-8)
   --fail-on <severity>    Exit code 1 if issues at this level (default: critical)
   --format <format>       Output format: text | json (default: text)
   --readiness-report      Detailed per-dimension readiness breakdown instead of issue list
@@ -311,7 +322,12 @@ Options:
   --dry-run               Preview --fix changes without writing to disk
   --watch                 Re-run analysis on every file save — Ctrl+C to stop
   --history [n]           Score trend table across last n git commits (default: 10)
+  --compare <ref>         Side-by-side diff against a git ref (e.g. HEAD~1) or another file
+  --gate                  Orchestrator gate mode — JSON pass/fail output, zero LLM cost
   --org [dir]             Org-level health dashboard — recursively discovers all files under dir
+  --init                  Scaffold a new instruction file from template
+  --type <type>           Template type for --init: claude | cursor | agents
+  --force                 Overwrite existing file with --init
   --mcp                   Start MCP server mode
   -V, --version           Show version number
   -h, --help              Show help
@@ -587,11 +603,13 @@ export const myRule: StructuralRule = (content, filePath) => {
 ```
 Your CLAUDE.md / AGENTS.md / .mdc
       │
-      ├─► Layer 1: Structural (16 rules, regex-based, zero API cost)
+      ├─► Layer 1: Structural (21 rules, regex-based, zero API cost)
       │         ├─► Frontmatter validation (missing, conflicting, incomplete)
       │         ├─► Content quality (empty sections, duplicate headings, TODOs)
+      │         ├─► Security (credentials, sensitive data)
       │         ├─► Code fence integrity (unclosed blocks)
-      │         ├─► Agent readiness (success criteria, hardcoded env, tool lists)
+      │         ├─► Agent readiness (persona, success criteria, hardcoded env, tool lists)
+      │         ├─► Instruction hygiene (redundant rules, missing examples, ordering)
       │         └─► Token budget per section
       │
       └─► Layer 2: Semantic (10 rules, LLM-powered)
@@ -650,6 +668,9 @@ npx @chiragdarji/agent-doctor CLAUDE.md --fix --dry-run
 | `unclosed-code-block` | Appends closing ` ``` ` fence at end of file |
 | `empty-section` | Inserts `_No content yet — add instructions here._` after the heading |
 | `missing-success-criteria` | Appends `> ✅ **Success criteria:** Done when _<describe outcome>_` at end of section |
+| `sensitive-data` | Replaces matched credentials with `[REDACTED]` (key= prefix preserved) |
+| `missing-agent-persona` | Prepends persona stub after frontmatter (or at top of file) |
+| `hardcoded-environment` | Replaces absolute paths with `$HOME` / `${PROJECT_ROOT}` / `$PORT` |
 | `legacy-format` | Skipped — prints rename instruction; file rename must be manual |
 
 ---
@@ -684,6 +705,49 @@ When you don't have a separate Anthropic/OpenAI key, use the skill at `skills/cu
 3. Apply agent-doctor semantic rules (from skill)
 4. Output findings with health score
 ```
+
+---
+
+## VS Code Extension
+
+Install **Agent Doctor** from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=chiragdarji.vscode-agent-doctor) for inline diagnostics without leaving the editor.
+
+### Features
+
+- **On-save structural analysis** — red/yellow/blue squiggles appear instantly on every save, zero API cost
+- **Problems panel** — all issues listed with rule ID, line, and message
+- **Quick Fix** (`Ctrl+.` / `Cmd+.`) — one-click auto-fix for 7 rules:
+  - `sensitive-data` → redact credential
+  - `missing-agent-persona` → prepend persona stub
+  - `hardcoded-environment` → replace path with env variable
+  - `todo-in-instructions` → replace with HTML comment
+  - `unclosed-code-block` → append closing fence
+  - `empty-section` → insert placeholder
+  - `missing-success-criteria` → insert success criteria stub
+- **Run Full Analysis** command — runs structural + semantic (LLM) analysis on the active file
+- **Run Structural Analysis** command — force-refresh diagnostics
+
+### Install
+
+```
+ext install chiragdarji.vscode-agent-doctor
+```
+
+Or search **Agent Doctor** in the Extensions panel (`Ctrl+Shift+X`).
+
+### Settings
+
+```json
+{
+  "agentDoctor.anthropicApiKey": "sk-ant-...",
+  "agentDoctor.openaiApiKey": "sk-...",
+  "agentDoctor.model": "claude-sonnet-4-6",
+  "agentDoctor.enableOnSave": true,
+  "agentDoctor.failOnSeverity": "critical"
+}
+```
+
+`enableOnSave: true` runs structural analysis on every save. Set `failOnSeverity` to control which issues show as errors vs. warnings/hints in the Problems panel.
 
 ---
 
