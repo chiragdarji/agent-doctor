@@ -6,7 +6,7 @@
 instruction files (CLAUDE.md, AGENTS.md, .cursor/rules/*.mdc, GEMINI.md).
 
 It runs two layers:
-1. **Structural layer** — 13 rules, zero API cost, regex/AST-based checks
+1. **Structural layer** — 21 rules, zero API cost, regex/AST-based checks
 2. **Semantic layer** — LLM-powered (Claude or OpenAI), finds instruction conflicts, ambiguities, broken logic
 
 Built with TypeScript + Node.js. Distributed as an npm package (`npx @chiragdarji/agent-doctor`).
@@ -319,6 +319,46 @@ For `openai-compatible` (Ollama, etc.), no API key is required — `OPENAI_API_K
 
 ---
 
+## Documentation Maintenance
+
+**Every code change must be followed by a documentation update.** This is non-negotiable.
+
+### What triggers a docs update
+
+| Change | Files to update |
+|--------|----------------|
+| New structural rule added | `docs/rules.md` (add rule entry), `docs/contributing.md` (rule count), `README.md` (rules table + badge count) |
+| New semantic rule added | `docs/rules.md` (add rule entry), `README.md` (rules table) |
+| New CLI flag added | `docs/cli-reference.md`, `README.md` CLI Reference section |
+| New auto-fix target | `docs/auto-fix.md`, `README.md` auto-fix table |
+| New config option | `docs/configuration.md`, `agent-doctor.schema.json` |
+| New programmatic export | `docs/api.md` |
+| New platform support | `docs/platforms.md`, `README.md` Supported Files table |
+| Readiness dimension change | `docs/readiness-score.md` deduction table |
+| MCP tool change | `docs/mcp-server.md` |
+| VS Code extension change | `docs/vscode-extension.md` |
+| Plugin API change | `docs/plugins.md` |
+| Version bump | `README.md` badges (`npm`, `rules` count) |
+| Type change (`AnalysisResult`, `Issue`, etc.) | `docs/api.md` Core Types section |
+
+### Verification steps after any change
+
+1. Run `npm run typecheck` — must pass with zero errors
+2. Run `npm run test:run` — all tests must pass
+3. Run `npm run lint` — zero lint errors
+4. Run `npx . CLAUDE.md --structural-only` — verify this file itself passes structural checks
+5. Confirm the relevant `docs/` file(s) above were updated in the same commit
+
+### Documentation principles
+
+- Keep docs in sync with the code — a doc describing a feature that no longer works is worse than no doc
+- Include working code examples (copy-pasteable)
+- Every rule in `docs/rules.md` must have a Bad/Good example
+- Every CLI flag in `docs/cli-reference.md` must match the actual Commander.js definition
+- Keep `CHANGELOG.md` updated with version sections for every release
+
+---
+
 ## What NOT To Do
 
 - Do not add a web UI — this is a CLI + MCP tool only
@@ -329,3 +369,4 @@ For `openai-compatible` (Ollama, etc.), no API key is required — `OPENAI_API_K
 - Do not use `any` type
 - Do not swallow errors silently
 - Do not use `gray-matter` — it uses `eval()` internally
+- Do not merge code changes without updating the relevant docs/ file(s)
