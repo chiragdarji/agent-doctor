@@ -4,6 +4,14 @@ All notable changes to `agent-doctor` are documented here.
 
 ---
 
+## [1.5.1] — 2026-10-25
+
+### Fixed
+
+- **Version string in published CLI binary** — `tsup.config.ts` CLI entry changed from `clean: false` to `clean: true` so the output folder is always wiped before each build. Previously, a stale `dist/cli.js` from a prior build could survive the rebuild and carry the wrong `--version` value into the published package.
+
+---
+
 ## [1.5.0] — 2026-10-25
 
 ### Added
@@ -115,7 +123,7 @@ All notable changes to `agent-doctor` are documented here.
 **5 new structural rules** (zero API cost):
 
 | Rule | Severity | What it catches |
-|------|----------|----------------|
+|------|----------|-----------------|
 | `sensitive-data` | critical | API keys, Bearer tokens, private key blocks, AWS/GitHub credentials hardcoded in instruction files |
 | `missing-agent-persona` | warning | Instruction files with no role/identity statement ("you are…", "your role is…") |
 | `redundant-instructions` | warning | Same directive repeated 3+ times (fuzzy word-overlap deduplication) |
