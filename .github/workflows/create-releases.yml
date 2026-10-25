@@ -1,7 +1,11 @@
 name: Create Version Releases
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - 'claude/agent-doctors-market-research-e8tgyc'
+    paths:
+      - '.github/workflows/create-releases.yml'
 
 jobs:
   create-releases:
@@ -26,17 +30,17 @@ jobs:
 
 | Rule | Severity | What it catches |
 |------|----------|----------------|
-| \`sensitive-data\` | critical | API keys, Bearer tokens, private key blocks, AWS/GitHub credentials hardcoded in instruction files |
+| \`sensitive-data\` | critical | API keys, Bearer tokens, private key blocks, AWS/GitHub credentials |
 | \`missing-agent-persona\` | warning | Instruction files with no role/identity statement |
 | \`redundant-instructions\` | warning | Same directive repeated 3+ times (fuzzy deduplication) |
-| \`missing-examples\` | suggestion | Complex multi-condition sections with no code block or inline example |
+| \`missing-examples\` | suggestion | Complex multi-condition sections with no inline example |
 | \`instruction-ordering\` | suggestion | Security/constraint headings buried after task sections |
 
 **Auto-fix expansion** — 3 new \`--fix\` targets: \`sensitive-data\`, \`missing-agent-persona\`, \`hardcoded-environment\`
 
 **VS Code extension v0.2.0** — Quick Fix support for 3 new rules.
 
-**\`.agentdoctor.json\` JSON Schema** for IDE validation and autocomplete." || echo "v1.0.0 may already exist, skipping"
+**JSON Schema** (\`agent-doctor.schema.json\`) for IDE validation and autocomplete." || echo "v1.0.0 may already exist, skipping"
 
       - name: Create v1.1.0 release
         env:
@@ -62,7 +66,7 @@ jobs:
             --title "v1.2.0 — prompt-injection rule + SARIF output" \
             --notes "## What's new in v1.2.0
 
-- **\`prompt-injection\` structural rule** (critical) — detects prompt injection attempts: override openers and blanket delegation. Skips code blocks, table rows, and inline code spans.
+- **\`prompt-injection\` structural rule** (critical) — detects prompt injection attempts: override openers and blanket delegation
 - **\`--format sarif\`** — emits SARIF 2.1.0 JSON for upload to GitHub Code Scanning" || echo "v1.2.0 may already exist, skipping"
 
       - name: Create v1.3.0 release
@@ -98,7 +102,7 @@ jobs:
             --title "v1.5.0 — broken-section-reference rule + HTML reports" \
             --notes "## What's new in v1.5.0
 
-- **\`broken-section-reference\`** (warning) — detects 'see the X section' cross-references where heading X does not exist in the same file. Fuzzy case-insensitive match.
-- **\`--format html\`** — generates a self-contained HTML health report with score/grade tiles, collapsible issue list, readiness dimension bars, dark mode, and no external dependencies.
+- **\`broken-section-reference\`** (warning) — detects 'see the X section' cross-references where heading X does not exist in the same file
+- **\`--format html\`** — generates a self-contained HTML health report with score/grade tiles, collapsible issue list, readiness dimension bars, and dark mode
 
 519 tests, all pass." || echo "v1.5.0 may already exist, skipping"
