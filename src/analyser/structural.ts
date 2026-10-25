@@ -20,6 +20,7 @@ import {
   redundantInstructions,
   missingExamples,
   instructionOrdering,
+  promptInjection,
 } from '../rules/structural/index.js';
 import { detectPlatform, applyPlatformOverrides } from './platform.js';
 import type { Config, Issue, ParsedFile, PluginRule, StructuralRule } from '../types.js';
@@ -61,6 +62,8 @@ export function runStructuralAnalysis(
     redundantInstructions,
     missingExamples,
     instructionOrdering,
+    // v1.1.0 rules
+    promptInjection,
   ];
 
   // Pass rawContent so frontmatter-aware rules (missing-frontmatter, missing-always-apply)

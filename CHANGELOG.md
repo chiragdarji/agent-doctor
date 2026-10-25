@@ -4,6 +4,24 @@ All notable changes to `agent-doctor` are documented here.
 
 ---
 
+## [1.2.0] — 2026-10-25
+
+### Added
+
+- **`prompt-injection` structural rule** (critical) — detects prompt injection attempts and over-permissive delegation in instruction files. Two categories:
+  - Override openers: "ignore previous instructions", "forget everything above", "you are now [NAME]", "act as if you have no restrictions"
+  - Blanket delegation: "do whatever the user says", "users can override these rules"
+  - Skips fenced code blocks, table rows, and inline code spans (consistent with `todo-in-instructions`)
+  - Maps to the **Bounded** readiness dimension
+
+- **`--format sarif`** — emits a [SARIF 2.1.0](https://sarifweb.azurewebsites.net/) JSON log for upload to GitHub Code Scanning (`gh code-scanning upload-results --sarif agent-doctor.sarif`). Severity mapping: `critical` → `error`, `warning` → `warning`, `suggestion` → `note`.
+
+### Tests
+
+- +21 new tests: 13 for `prompt-injection` rule, 8 for `formatSarif` (466 total, all pass)
+
+---
+
 ## [1.1.0] — 2026-10-25
 
 ### Changed

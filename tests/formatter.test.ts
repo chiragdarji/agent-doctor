@@ -311,3 +311,74 @@ describe('formatBadge', () => {
     expect(badge.color).toBe('red');
   });
 });
+
+// ---------------------------------------------------------------------------
+// formatSarif
+// ---------------------------------------------------------------------------
+import { formatSarif } from '../src/output/sarif.js';
+
+describe('formatSarif', () => {
+  it('produces valid SARIF 2.1.0 structure for empty results', () => {
+    const sarif = JSON.parse(formatSarif([]));
+    expect(sarif.version).toBe('2.1.0');
+    expect(sarif.runs).toHaveLength(1);
+    expect(sarif.runs[0].results).toHaveLength(0);
+    expect(sarif.runs[0].tool.driver.name).toBe('agent-doctor');
+  });
+
+  it('maps critical severity to SARIF level "error"', () => {
+    const result = makeResult({
+      issues: [{ ruleId: 'sensitive-data', severity: 'critical', message: 'Key found', suggestion: 'Remove it' }],
+    });
+    const sarif = JSON.parse(formatSarif([result]));
+    expect(sarif.runs[0].results[0].level).toBe('error');
+  });
+
+  it('maps warning severity to SARIF level "warning"', () => {
+    const result = makeResult({
+      issues: [{ ruleId: 'empty-section', severity: 'warning', message: 'Empty', suggestion: 'Fill it' }],
+    });
+    const sarif = JSON.parse(formatSarif([result]));
+    expect(sarif.runs[0].results[0].level).toBe('warning');
+  });
+
+  it('maps suggestion severity to SARIF level "note"', () => {
+    const result = makeResult({
+      issues: [{ ruleId: 'negation-heavy', severity: 'suggestion', message: 'Negative', suggestion: 'Rewrite' }],
+    });
+    const sarif = JSON.parse(formatSarif([result]));
+    expect(sarif.runs[0].results[0].level).toBe('note');
+  });
+
+  it('includes line number in region when issue has a line', () => {
+    const result = makeResult({
+      issues: [{ ruleId: 'todo-in-instructions', severity: 'warning', message: 'TODO', suggestion: 'Fix', line: 42 }],
+    });
+    const sarif = JSON.parse(formatSarif([result]));
+    expect(sarif.runs[0].results[0].locations[0].physicalLocation.region.startLine).toBe(42);
+  });
+
+  it('includes fix suggestion', () => {
+    const result = makeResult({
+      issues: [{ ruleId: 'empty-section', severity: 'warning', message: 'M', suggestion: 'Add content here' }],
+    });
+    const sarif = JSON.parse(formatSarif([result]));
+    expect(sarif.runs[0].results[0].fixes[0].description.text).toBe('Add content here');
+  });
+
+  it('deduplicates rules across multiple results', () => {
+    const results = [
+      makeResult({ issues: [{ ruleId: 'empty-section', severity: 'suggestion', message: 'M', suggestion: 'S' }] }),
+      makeResult({ issues: [{ ruleId: 'empty-section', severity: 'suggestion', message: 'M2', suggestion: 'S2' }] }),
+    ];
+    const sarif = JSON.parse(formatSarif(results));
+    expect(sarif.runs[0].tool.driver.rules).toHaveLength(1);
+  });
+
+  it('includes file artifact in artifacts list', () => {
+    const result = makeResult({ file: '/project/CLAUDE.md' });
+    result.issues.push({ ruleId: 'empty-section', severity: 'suggestion', message: 'M', suggestion: 'S' });
+    const sarif = JSON.parse(formatSarif([result]));
+    expect(sarif.runs[0].artifacts[0].location.uri).toBe('/project/CLAUDE.md');
+  });
+});

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import {
   runStructuralAnalysis
-} from "./chunk-ZI7CJJUW.js";
+} from "./chunk-W5ZHSQ5I.js";
 import "./chunk-N25LFLMI.js";
 export {
   runStructuralAnalysis
 };
-//# sourceMappingURL=structural-AJIEMYE5.js.map
+//# sourceMappingURL=structural-27GIARFS.js.map

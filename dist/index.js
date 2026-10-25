@@ -24,7 +24,7 @@ import {
   parseSections,
   resolveProvider,
   runStructuralAnalysis
-} from "./chunk-B7XQKPOW.js";
+} from "./chunk-ZRM5S4NM.js";
 
 // src/fixer.ts
 import { readFileSync, writeFileSync } from "fs";

@@ -7,7 +7,7 @@ import {
   calculateScore,
   computeReadiness,
   logger
-} from "./chunk-PUSOAFIH.js";
+} from "./chunk-AWSA3ITS.js";
 import {
   parseFile,
   parseMarkdownContent,
@@ -15,7 +15,7 @@ import {
 } from "./chunk-XTBU7AIN.js";
 import {
   runStructuralAnalysis
-} from "./chunk-ZI7CJJUW.js";
+} from "./chunk-W5ZHSQ5I.js";
 import "./chunk-N25LFLMI.js";
 
 // src/cli.ts
@@ -668,6 +668,85 @@ function formatBadge(results) {
   return JSON.stringify(badge, null, 2);
 }
 
+// src/output/sarif.ts
+function toSarifLevel(severity) {
+  switch (severity) {
+    case "critical":
+      return "error";
+    case "warning":
+      return "warning";
+    case "suggestion":
+      return "note";
+  }
+}
+function collectRules(results) {
+  const seen = /* @__PURE__ */ new Map();
+  for (const result of results) {
+    for (const issue of result.issues) {
+      if (seen.has(issue.ruleId)) continue;
+      seen.set(issue.ruleId, {
+        id: issue.ruleId,
+        name: issue.ruleId.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(""),
+        shortDescription: { text: issue.message },
+        defaultConfiguration: { level: toSarifLevel(issue.severity) },
+        helpUri: `https://github.com/chiragdarji/agent-doctor/blob/main/docs/rules.md#${issue.ruleId}`
+      });
+    }
+  }
+  return Array.from(seen.values());
+}
+function toSarifResult(issue, filePath) {
+  const location = {
+    physicalLocation: {
+      artifactLocation: { uri: filePath, uriBaseId: "%SRCROOT%" }
+    }
+  };
+  if (issue.line !== void 0) {
+    location.physicalLocation.region = {
+      startLine: issue.line,
+      ...issue.context !== void 0 ? { snippet: { text: issue.context } } : {}
+    };
+  }
+  return {
+    ruleId: issue.ruleId,
+    level: toSarifLevel(issue.severity),
+    message: { text: issue.message },
+    locations: [location],
+    fixes: [{ description: { text: issue.suggestion } }]
+  };
+}
+function formatSarif(results) {
+  const rules = collectRules(results);
+  const sarifResults = [];
+  const artifactUris = /* @__PURE__ */ new Set();
+  for (const result of results) {
+    artifactUris.add(result.file);
+    for (const issue of result.issues) {
+      sarifResults.push(toSarifResult(issue, result.file));
+    }
+  }
+  const run = {
+    tool: {
+      driver: {
+        name: "agent-doctor",
+        version: "1.1.0",
+        informationUri: "https://github.com/chiragdarji/agent-doctor",
+        rules
+      }
+    },
+    results: sarifResults,
+    artifacts: Array.from(artifactUris).map((uri) => ({
+      location: { uri, uriBaseId: "%SRCROOT%" }
+    }))
+  };
+  const log = {
+    $schema: "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+    version: "2.1.0",
+    runs: [run]
+  };
+  return JSON.stringify(log, null, 2);
+}
+
 // src/output/readiness-reporter.ts
 import chalk2 from "chalk";
 import { basename as basename2 } from "path";
@@ -1252,8 +1331,8 @@ function formatOrgGateJson(results, failOn) {
 
 // src/cli.ts
 var program = new Command();
-program.name("agent-doctor").description("Semantic health check for AI agent instruction files").version("1.1.0");
-program.argument("[file]", "Path to the instruction file to analyse").option("--all", "Discover and analyse all instruction files in the project").option("--fail-on <severity>", "Exit with code 1 if any issue meets this severity", "critical").option("--format <format>", "Output format: text | json | badge (shields.io endpoint JSON)", "text").option("--structural-only", "Skip semantic layer (no API key required)").option(
+program.name("agent-doctor").description("Semantic health check for AI agent instruction files").version("1.2.0");
+program.argument("[file]", "Path to the instruction file to analyse").option("--all", "Discover and analyse all instruction files in the project").option("--fail-on <severity>", "Exit with code 1 if any issue meets this severity", "critical").option("--format <format>", "Output format: text | json | badge | sarif (SARIF 2.1.0 for GitHub Code Scanning)", "text").option("--structural-only", "Skip semantic layer (no API key required)").option(
   "--model <id>",
   "Override LLM model (e.g. gpt-4o uses OPENAI_API_KEY; claude-* uses ANTHROPIC_API_KEY)"
 ).option("--fix", "Auto-fix structural issues in-place (todo-in-instructions, unclosed-code-block, empty-section, missing-success-criteria)").option("--dry-run", "Preview --fix changes without writing to disk").option("--watch", "Re-run analysis on every file save \u2014 Ctrl+C to stop (single file only)").option("--init", "Scaffold a new agent instruction file template in the current directory").option("--type <type>", "Template type for --init: claude | cursor | agents", "claude").option("--force", "Overwrite existing files without prompting (use with --init)").option("--readiness-report", "Print a detailed per-dimension readiness breakdown instead of the standard issue list").option("--history [n]", "Show score trend for the last n git commits (default: 10)").option("--org [dir]", "Org-level health dashboard \u2014 recursively discovers all instruction files under dir (default: cwd)").option("--compare <ref>", "Compare current file against a git ref (HEAD~1) or another file path").option("--gate", "Orchestrator gate mode \u2014 structural-only check, JSON pass/fail, exit 0=safe exit 1=blocked").option("--mcp", "Start MCP server mode (v0.2)").action(async (file, opts) => {
@@ -1337,8 +1416,8 @@ program.argument("[file]", "Path to the instruction file to analyse").option("--
         process.exit(2);
       }
       const { parseMarkdownContent: parseMarkdownContent2, parseMdcContent: parseMdcContent2 } = await import("./parser-4NDNFOCB.js");
-      const { runStructuralAnalysis: runStructuralAnalysis2 } = await import("./structural-AJIEMYE5.js");
-      const { calculateScore: calculateScore2, calculateGrade: calculateGrade2, computeReadiness: computeReadiness2 } = await import("./analyser-2A43NEX3.js");
+      const { runStructuralAnalysis: runStructuralAnalysis2 } = await import("./structural-27GIARFS.js");
+      const { calculateScore: calculateScore2, calculateGrade: calculateGrade2, computeReadiness: computeReadiness2 } = await import("./analyser-2HMMDTJD.js");
       const isMdc = extname2(file).toLowerCase() === ".mdc";
       const structuralConfig = { ...config2, layers: ["structural"] };
       const parsed = isMdc ? parseMdcContent2(file, rawContent) : parseMarkdownContent2(file, rawContent);
@@ -1504,11 +1583,13 @@ program.argument("[file]", "Path to the instruction file to analyse").option("--
     );
   } else if (opts.format === "badge") {
     process.stdout.write(formatBadge(results) + "\n");
+  } else if (opts.format === "sarif") {
+    process.stdout.write(formatSarif(results) + "\n");
   } else if (opts.readinessReport) {
     process.stdout.write(formatReadinessReport(results) + "\n");
   } else {
     if (opts.format !== "text") {
-      process.stderr.write(`Unknown --format "${opts.format}" \u2014 valid values: text | json | badge. Defaulting to text.
+      process.stderr.write(`Unknown --format "${opts.format}" \u2014 valid values: text | json | badge | sarif. Defaulting to text.
 `);
     }
     process.stdout.write(

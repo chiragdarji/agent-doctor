@@ -38,7 +38,8 @@ export type KnownRuleId =
   | 'missing-agent-persona'
   | 'redundant-instructions'
   | 'missing-examples'
-  | 'instruction-ordering';
+  | 'instruction-ordering'
+  | 'prompt-injection';
 
 /**
  * Rule identifier. Well-known values are listed for autocomplete; plugin rules
