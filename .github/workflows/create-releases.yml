@@ -22,7 +22,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create v1.0.0 \
-            --target 3dcdbc3 \
+            --target 3dcdbc3c4142dc12f59d65e8b64fe52210302b24 \
             --title 'v1.0.0 - Agent Readiness rules, auto-fix expansion, JSON Schema' \
             --notes 'New rules: sensitive-data, missing-agent-persona, redundant-instructions, missing-examples, instruction-ordering. Auto-fix expansion. VS Code extension v0.2.0. JSON Schema for IDE autocomplete.' \
             || echo 'v1.0.0 already exists, skipping'
@@ -32,7 +32,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create v1.1.0 \
-            --target 38ca070 \
+            --target 38ca070c9f47b1cdce1f55e3083085b1a950eb68 \
             --title 'v1.1.0 - Rule precision, badge format, extended secret detection' \
             --notes 'todo-in-instructions severity downgraded to warning; false-positive reduction for code blocks/tables. sensitive-data expanded: Slack, Google API, Stripe, GitHub fine-grained PATs, context masking. New --format badge for shields.io.' \
             || echo 'v1.1.0 already exists, skipping'
@@ -42,7 +42,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create v1.2.0 \
-            --target ae07057 \
+            --target ae07057150564d3e9ebcd749266746f28ebcd7e3 \
             --title 'v1.2.0 - prompt-injection rule + SARIF output' \
             --notes 'New rule: prompt-injection (critical) detects override openers and blanket delegation. New --format sarif emits SARIF 2.1.0 JSON for GitHub Code Scanning upload.' \
             || echo 'v1.2.0 already exists, skipping'
@@ -52,7 +52,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create v1.3.0 \
-            --target 03b6feb \
+            --target 03b6feb6fc3a93369cf81f39c1c4005bd53bac83 \
             --title 'v1.3.0 - --init-workflow generates GitHub Actions CI' \
             --notes 'New --init-workflow flag generates .github/workflows/agent-doctor.yml for CI. Two variants: basic (run + fail) and sarif (+ upload to GitHub Security tab).' \
             || echo 'v1.3.0 already exists, skipping'
@@ -62,7 +62,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create v1.4.0 \
-            --target 9525b14 \
+            --target 9525b144c5f4615fb9eb8d9e242d3d56cdb508d6 \
             --title 'v1.4.0 - AGENTS.md health rules + pre-commit hook installer' \
             --notes 'New AGENTS.md-specific rules: missing-handoff-protocol and missing-agent-scope (both warning). New --init-pre-commit installs a pre-commit hook (native or pre-commit framework variant).' \
             || echo 'v1.4.0 already exists, skipping'
@@ -72,7 +72,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create v1.5.0 \
-            --target f8d4a60 \
+            --target f8d4a605f6f710af137c20c260cc320fd3e639ef \
             --title 'v1.5.0 - broken-section-reference rule + HTML reports' \
             --notes 'New rule: broken-section-reference (warning) detects cross-references to non-existent headings. New --format html generates a self-contained HTML health report with dark mode, score tiles, and readiness dimension bars. 519 tests, all pass.' \
             || echo 'v1.5.0 already exists, skipping'
