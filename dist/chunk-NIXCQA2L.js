@@ -997,6 +997,56 @@ var missingAgentScope = (content, filePath) => {
   ];
 };
 
+// src/rules/structural/broken-section-reference.ts
+var SECTION_REF_RE = /\b(?:see|refer\s+to|check|as\s+(?:described|documented|specified|outlined|mentioned|noted)\s+in|per)\s+(?:the\s+)?["']?([A-Za-z][^"'\n#<]{2,50}?)["']?\s+section\b/gi;
+var HEADING_RE = /^#{1,6}\s+(.+)$/gm;
+function normalise2(s) {
+  return s.toLowerCase().replace(/[^\w\s]/g, "").replace(/\s+/g, " ").trim();
+}
+var brokenSectionReference = (content, filePath) => {
+  if (filePath.endsWith(".mdc") || filePath.endsWith(".cursorrules")) return [];
+  const headings = [];
+  let m;
+  HEADING_RE.lastIndex = 0;
+  while ((m = HEADING_RE.exec(content)) !== null) {
+    headings.push(normalise2(m[1].trim()));
+  }
+  if (headings.length === 0) return [];
+  const issues = [];
+  const lines = content.split("\n");
+  let inCodeBlock = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^(`{3,}|~{3,})/.test(line)) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+    if (inCodeBlock) continue;
+    if (/^\s*\|/.test(line)) continue;
+    const stripped = line.replace(/`[^`]*`/g, "");
+    SECTION_REF_RE.lastIndex = 0;
+    let refMatch;
+    while ((refMatch = SECTION_REF_RE.exec(stripped)) !== null) {
+      const refText = normalise2(refMatch[1].trim());
+      const found = headings.some(
+        (h) => h.includes(refText) || refText.includes(h)
+      );
+      if (!found) {
+        issues.push({
+          ruleId: "broken-section-reference",
+          severity: "warning",
+          message: `Reference to "${refMatch[1].trim()} section" but no such heading exists`,
+          suggestion: `Add a heading that matches "${refMatch[1].trim()}", or update the reference to match an existing heading.`,
+          line: i + 1,
+          context: line.trim().slice(0, 120)
+        });
+        break;
+      }
+    }
+  }
+  return issues;
+};
+
 // src/analyser/structural.ts
 function runStructuralAnalysis(parsed, config, pluginRules = []) {
   const rules = [
@@ -1030,7 +1080,9 @@ function runStructuralAnalysis(parsed, config, pluginRules = []) {
     promptInjection,
     // v1.4.0 rules
     missingHandoffProtocol,
-    missingAgentScope
+    missingAgentScope,
+    // v1.5.0 rules
+    brokenSectionReference
   ];
   const platform = detectPlatform(parsed.fileType);
   const rawIssues = [
@@ -1640,4 +1692,4 @@ export {
   DEFAULT_CONFIG,
   loadConfig
 };
-//# sourceMappingURL=chunk-4FK3KLQJ.js.map
+//# sourceMappingURL=chunk-NIXCQA2L.js.map

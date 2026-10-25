@@ -8,7 +8,7 @@ agent-doctor runs two layers of rules: **structural** (21 rules, zero API cost) 
 
 Structural rules are regex/AST-based checks that run in milliseconds. They require no API key.
 
-> **Rule count:** 23 structural rules, 10 semantic rules (33 total).
+> **Rule count:** 24 structural rules, 10 semantic rules (34 total).
 
 ### Format & Frontmatter
 
@@ -427,6 +427,33 @@ A task is described with no way for the agent to verify it completed correctly �
 **Good:** "Implement the payment gateway. Verify by running `npm test -- payment` — all 12 tests must pass."
 
 Maps to **Observable** dimension.
+
+---
+
+#### `broken-section-reference`
+**Severity:** warning
+
+Detects "see the X section" cross-references where section X does not exist as a heading in the same file. Broken references confuse the agent — it follows the instruction to consult a section that isn't there, resulting in either a hallucinated interpretation or a failed lookup.
+
+**Detection:** scans for phrases like "see the X section", "refer to the X section", "as described in the X section" and verifies that a heading matching X (fuzzy, case-insensitive) exists. Skips fenced code blocks, table rows, and inline code spans.
+
+**Bad:**
+```markdown
+## Workflow
+See the Authentication section for credential requirements.
+```
+*(no "Authentication" heading exists)*
+
+**Good:**
+```markdown
+## Authentication
+Use the `$ANTHROPIC_API_KEY` environment variable.
+
+## Workflow
+See the Authentication section for credential requirements.
+```
+
+Does not apply to `.mdc` files.
 
 ---
 

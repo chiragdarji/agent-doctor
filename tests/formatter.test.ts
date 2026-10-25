@@ -7,6 +7,7 @@ import {
   formatResultsJson,
 } from '../src/output/formatter.js';
 import { formatBadge } from '../src/output/badge.js';
+import { formatHtml } from '../src/output/html-reporter.js';
 import type { AnalysisResult } from '../src/types.js';
 
 // Disable chalk colours in tests for predictable string matching
@@ -380,5 +381,67 @@ describe('formatSarif', () => {
     result.issues.push({ ruleId: 'empty-section', severity: 'suggestion', message: 'M', suggestion: 'S' });
     const sarif = JSON.parse(formatSarif([result]));
     expect(sarif.runs[0].artifacts[0].location.uri).toBe('/project/CLAUDE.md');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatHtml
+// ---------------------------------------------------------------------------
+describe('formatHtml', () => {
+  it('produces a complete HTML document', () => {
+    const html = formatHtml([makeResult()]);
+    expect(html).toContain('<!DOCTYPE html>');
+    expect(html).toContain('</html>');
+  });
+
+  it('includes the file path', () => {
+    const html = formatHtml([makeResult({ file: '/project/CLAUDE.md' })]);
+    expect(html).toContain('CLAUDE.md');
+  });
+
+  it('shows score in the output', () => {
+    const html = formatHtml([makeResult({ score: 87 })]);
+    expect(html).toContain('87');
+  });
+
+  it('shows grade', () => {
+    const html = formatHtml([makeResult({ grade: 'B' })]);
+    expect(html).toContain('>B<');
+  });
+
+  it('shows issue rule ID and message', () => {
+    const result = makeResult({
+      issues: [{ ruleId: 'empty-section', severity: 'warning', message: 'Empty heading found', suggestion: 'Add content' }],
+    });
+    const html = formatHtml([result]);
+    expect(html).toContain('empty-section');
+    expect(html).toContain('Empty heading found');
+  });
+
+  it('shows "No issues found" for a clean result', () => {
+    const html = formatHtml([makeResult()]);
+    expect(html).toContain('No issues found');
+  });
+
+  it('renders multiple results', () => {
+    const results = [
+      makeResult({ file: '/project/CLAUDE.md' }),
+      makeResult({ file: '/project/AGENTS.md' }),
+    ];
+    const html = formatHtml(results);
+    expect(html).toContain('CLAUDE.md');
+    expect(html).toContain('AGENTS.md');
+  });
+
+  it('includes readiness dimensions', () => {
+    const html = formatHtml([makeResult()]);
+    expect(html).toContain('Observable');
+    expect(html).toContain('Bounded');
+    expect(html).toContain('Reversible');
+  });
+
+  it('includes toggle theme button', () => {
+    const html = formatHtml([makeResult()]);
+    expect(html).toContain('Toggle theme');
   });
 });

@@ -20,7 +20,7 @@ agent-doctor [file] [options]
 | `--structural-only` | — | Skip semantic (LLM) layer; runs instantly, no API key required |
 | `--model <id>` | `claude-sonnet-4-6` | Override the LLM model (e.g. `gpt-4o`, `claude-opus-4-8`) |
 | `--fail-on <severity>` | `critical` | Exit code `1` threshold: `critical` \| `warning` \| `suggestion` |
-| `--format <fmt>` | `text` | Output format: `text` \| `json` \| `badge` (shields.io endpoint JSON) \| `sarif` (SARIF 2.1.0 for GitHub Code Scanning) |
+| `--format <fmt>` | `text` | Output format: `text` \| `json` \| `badge` (shields.io endpoint JSON) \| `sarif` (SARIF 2.1.0) \| `html` (self-contained HTML report) |
 
 ### Reporting
 
@@ -135,6 +135,9 @@ agent-doctor --init-pre-commit
 
 # Install pre-commit framework config entry
 agent-doctor --init-pre-commit --pre-commit-variant pre-commit-framework
+
+# Generate a shareable HTML report
+agent-doctor --all --structural-only --format html > report.html
 ```
 
 ---

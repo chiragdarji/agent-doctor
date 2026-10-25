@@ -1300,3 +1300,60 @@ describe('missing-agent-scope', () => {
     expect(issues).toHaveLength(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// broken-section-reference
+// ---------------------------------------------------------------------------
+import { brokenSectionReference } from '../src/rules/structural/broken-section-reference.js';
+
+describe('broken-section-reference', () => {
+  it('passes when the referenced section exists', () => {
+    const content = '## Error Handling\n\nHandle errors here.\n\n## Usage\n\nSee the Error Handling section for details.';
+    const issues = brokenSectionReference(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('flags a reference to a non-existent section', () => {
+    const content = '## Overview\n\nSome content.\n\nSee the Authentication section for details.';
+    const issues = brokenSectionReference(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.ruleId).toBe('broken-section-reference');
+    expect(issues[0]!.severity).toBe('warning');
+  });
+
+  it('reports the correct line number', () => {
+    const content = '## Overview\n\nLine 3 text.\nSee the Nonexistent section for more.';
+    const issues = brokenSectionReference(content, 'CLAUDE.md');
+    expect(issues[0]!.line).toBe(4);
+  });
+
+  it('skips references inside fenced code blocks', () => {
+    const content = '## Overview\n\n```\nSee the Missing section for details.\n```\n';
+    const issues = brokenSectionReference(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('skips references in table rows', () => {
+    const content = '## Overview\n\n| Column | See the Missing section |\n|---|---|\n';
+    const issues = brokenSectionReference(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('ignores .mdc files', () => {
+    const content = '## Overview\n\nSee the Nonexistent section.';
+    const issues = brokenSectionReference(content, 'rules/test.mdc');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('uses fuzzy heading match (partial text)', () => {
+    const content = '## Error Handling and Recovery\n\nSee the Error Handling section.';
+    const issues = brokenSectionReference(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('does not flag when no section references exist', () => {
+    const content = '## Overview\n\nThis is general content with no cross-references.\n';
+    const issues = brokenSectionReference(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+});

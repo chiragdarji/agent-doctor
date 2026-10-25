@@ -22,3 +22,4 @@ export { instructionOrdering } from './instruction-ordering.js';
 export { promptInjection } from './prompt-injection.js';
 export { missingHandoffProtocol } from './missing-handoff-protocol.js';
 export { missingAgentScope } from './missing-agent-scope.js';
+export { brokenSectionReference } from './broken-section-reference.js';

@@ -17,6 +17,7 @@ export { analyseSemantics } from './analyser/semantic.js';
 export { createAnthropicClient, createOpenAIClient, createOpenAICompatibleClient, createClientFromConfig, inferProvider, resolveProvider } from './analyser/llm-client.js';
 export { formatResult, formatResults, formatResultJson, formatResultsJson } from './output/formatter.js';
 export { formatReadinessReport } from './output/readiness-reporter.js';
+export { formatHtml } from './output/html-reporter.js';
 export { runHistory } from './analyser/history.js';
 export { detectPlatform, applyPlatformOverrides } from './analyser/platform.js';
 export type { TargetPlatform } from './analyser/platform.js';

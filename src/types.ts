@@ -42,7 +42,9 @@ export type KnownRuleId =
   | 'prompt-injection'
   // v1.4.0 rules
   | 'missing-handoff-protocol'
-  | 'missing-agent-scope';
+  | 'missing-agent-scope'
+  // v1.5.0 rules
+  | 'broken-section-reference';
 
 /**
  * Rule identifier. Well-known values are listed for autocomplete; plugin rules

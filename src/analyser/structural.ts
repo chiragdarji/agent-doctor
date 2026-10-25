@@ -23,6 +23,7 @@ import {
   promptInjection,
   missingHandoffProtocol,
   missingAgentScope,
+  brokenSectionReference,
 } from '../rules/structural/index.js';
 import { detectPlatform, applyPlatformOverrides } from './platform.js';
 import type { Config, Issue, ParsedFile, PluginRule, StructuralRule } from '../types.js';
@@ -69,6 +70,8 @@ export function runStructuralAnalysis(
     // v1.4.0 rules
     missingHandoffProtocol,
     missingAgentScope,
+    // v1.5.0 rules
+    brokenSectionReference,
   ];
 
   // Pass rawContent so frontmatter-aware rules (missing-frontmatter, missing-always-apply)

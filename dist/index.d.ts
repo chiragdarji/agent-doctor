@@ -1,7 +1,7 @@
 type Severity = 'critical' | 'warning' | 'suggestion';
 type Grade = 'A' | 'B' | 'C' | 'D' | 'F';
 /** Well-known rule identifiers — listed for IDE autocomplete and compile-time checks. */
-type KnownRuleId = 'decision-loop' | 'vague-boundary' | 'tool-mismatch' | 'missing-fallback' | 'scope-bleed' | 'contradiction' | 'ambiguous-pronoun' | 'over-permissive' | 'missing-recovery-strategy' | 'unobservable-outcome' | 'cross-file-conflict' | 'missing-frontmatter' | 'missing-always-apply' | 'legacy-format' | 'token-budget-exceeded' | 'empty-section' | 'duplicate-heading' | 'missing-description' | 'unclosed-code-block' | 'conflicting-frontmatter' | 'missing-file-glob' | 'heading-depth-skip' | 'negation-heavy' | 'todo-in-instructions' | 'missing-success-criteria' | 'hardcoded-environment' | 'missing-tool-list' | 'sensitive-data' | 'missing-agent-persona' | 'redundant-instructions' | 'missing-examples' | 'instruction-ordering' | 'prompt-injection' | 'missing-handoff-protocol' | 'missing-agent-scope';
+type KnownRuleId = 'decision-loop' | 'vague-boundary' | 'tool-mismatch' | 'missing-fallback' | 'scope-bleed' | 'contradiction' | 'ambiguous-pronoun' | 'over-permissive' | 'missing-recovery-strategy' | 'unobservable-outcome' | 'cross-file-conflict' | 'missing-frontmatter' | 'missing-always-apply' | 'legacy-format' | 'token-budget-exceeded' | 'empty-section' | 'duplicate-heading' | 'missing-description' | 'unclosed-code-block' | 'conflicting-frontmatter' | 'missing-file-glob' | 'heading-depth-skip' | 'negation-heavy' | 'todo-in-instructions' | 'missing-success-criteria' | 'hardcoded-environment' | 'missing-tool-list' | 'sensitive-data' | 'missing-agent-persona' | 'redundant-instructions' | 'missing-examples' | 'instruction-ordering' | 'prompt-injection' | 'missing-handoff-protocol' | 'missing-agent-scope' | 'broken-section-reference';
 /**
  * Rule identifier. Well-known values are listed for autocomplete; plugin rules
  * may use any string (e.g. `'my-org/no-emoji'`).
@@ -306,6 +306,12 @@ declare function formatResultsJson(results: AnalysisResult[]): string;
  */
 declare function formatReadinessReport(results: AnalysisResult[]): string;
 
+/**
+ * Generates a self-contained HTML health report for one or more analysis results.
+ * The output is a complete HTML document with inline CSS and no external dependencies.
+ */
+declare function formatHtml(results: AnalysisResult[]): string;
+
 interface HistoryEntry {
     commit: string;
     date: string;
@@ -360,4 +366,4 @@ declare function formatOrgReportJson(results: AnalysisResult[], root: string): s
  */
 declare function countTokens(text: string): number;
 
-export { type AnalysisLayer, type AnalysisResult, type Config, DEFAULT_CONFIG, type FileType, type FixResult, type Grade, type HistoryEntry, type InitOptions, type InitResult, type InitType, type Issue, type LLMClient, type LLMProvider, type ParsedFile, type PluginRule, type RuleId, type Section, type Severity, type StructuralRule, type TargetPlatform, analyse, analyseAll, analyseSemantics, applyFixes, applyPlatformOverrides, countTokens, createAnthropicClient, createClientFromConfig, createOpenAIClient, createOpenAICompatibleClient, detectPlatform, discoverFiles, discoverOrgFiles, formatHistory, formatHistoryJson, formatOrgReport, formatOrgReportJson, formatReadinessReport, formatResult, formatResultJson, formatResults, formatResultsJson, inferProvider, initFile, loadConfig, loadPlugins, parseFile, parseMarkdown, parseMdc, parseSections, resolveProvider, runHistory, runStructuralAnalysis, templateFor };
+export { type AnalysisLayer, type AnalysisResult, type Config, DEFAULT_CONFIG, type FileType, type FixResult, type Grade, type HistoryEntry, type InitOptions, type InitResult, type InitType, type Issue, type LLMClient, type LLMProvider, type ParsedFile, type PluginRule, type RuleId, type Section, type Severity, type StructuralRule, type TargetPlatform, analyse, analyseAll, analyseSemantics, applyFixes, applyPlatformOverrides, countTokens, createAnthropicClient, createClientFromConfig, createOpenAIClient, createOpenAICompatibleClient, detectPlatform, discoverFiles, discoverOrgFiles, formatHistory, formatHistoryJson, formatHtml, formatOrgReport, formatOrgReportJson, formatReadinessReport, formatResult, formatResultJson, formatResults, formatResultsJson, inferProvider, initFile, loadConfig, loadPlugins, parseFile, parseMarkdown, parseMdc, parseSections, resolveProvider, runHistory, runStructuralAnalysis, templateFor };

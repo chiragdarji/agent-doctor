@@ -4,6 +4,32 @@ All notable changes to `agent-doctor` are documented here.
 
 ---
 
+## [1.5.0] — 2026-10-25
+
+### Added
+
+- **`broken-section-reference` structural rule** (warning) — detects "see the X section" cross-references where heading X does not exist in the same file. Broken references leave the agent consulting a section that isn't there, resulting in hallucinated interpretations. Fuzzy case-insensitive heading match. Skips fenced code blocks, table rows, and inline code. Does not apply to `.mdc` files.
+
+- **`--format html`** — generates a self-contained HTML health report with:
+  - Score / grade / readiness overview tiles
+  - Per-file sections with collapsible issue list (critical → warning → suggestion)
+  - Readiness dimension bars (Observable / Bounded / Reversible / Tooled / Documented)
+  - Dark mode (follows system preference) with a toggle button
+  - No external dependencies — safe to commit or share as an email attachment
+  - `formatHtml(results)` exported from the programmatic API
+
+### Tests
+
+- +8 tests for `broken-section-reference`, +9 tests for `formatHtml`
+- Total: 519 tests, all pass
+
+### Documentation
+
+- `docs/rules.md` — added `broken-section-reference` entry; updated rule count to 24 structural / 10 semantic (34 total)
+- `docs/cli-reference.md` — added `html` to `--format` table; added example
+
+---
+
 ## [1.4.0] — 2026-10-25
 
 ### Added
