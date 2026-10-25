@@ -4,7 +4,7 @@ import {
 } from "./chunk-XTBU7AIN.js";
 import {
   runStructuralAnalysis
-} from "./chunk-RXZSUZDW.js";
+} from "./chunk-EXRPABKC.js";
 
 // src/analyser/semantic.ts
 import { z } from "zod";
@@ -534,7 +534,13 @@ var READINESS_DEDUCTIONS = {
   "todo-in-instructions": { documented: 20 },
   "empty-section": { documented: 10 },
   "ambiguous-pronoun": { documented: 10 },
-  "cross-file-conflict": { bounded: 15, documented: 10 }
+  "cross-file-conflict": { bounded: 15, documented: 10 },
+  // v1.0.0 rules
+  "sensitive-data": { documented: 25, reversible: 15 },
+  "missing-agent-persona": { documented: 15, bounded: 10 },
+  "redundant-instructions": { documented: 10 },
+  "missing-examples": { documented: 10 },
+  "instruction-ordering": { reversible: 10, bounded: 10 }
 };
 function computeReadiness(issues) {
   const dims = {
@@ -566,4 +572,4 @@ export {
   calculateGrade,
   computeReadiness
 };
-//# sourceMappingURL=chunk-S267EHLT.js.map
+//# sourceMappingURL=chunk-OQHAF3UJ.js.map

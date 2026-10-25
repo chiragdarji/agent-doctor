@@ -24,7 +24,7 @@ import {
   parseSections,
   resolveProvider,
   runStructuralAnalysis
-} from "./chunk-XX6OHGCO.js";
+} from "./chunk-TAD2AQDQ.js";
 
 // src/fixer.ts
 import { readFileSync, writeFileSync } from "fs";
@@ -32,9 +32,23 @@ var AUTO_FIXABLE = /* @__PURE__ */ new Set([
   "todo-in-instructions",
   "unclosed-code-block",
   "empty-section",
-  "missing-success-criteria"
+  "missing-success-criteria",
+  "sensitive-data",
+  "missing-agent-persona",
+  "hardcoded-environment"
 ]);
 var TODO_RE = /\b(TODO|FIXME|HACK|PLACEHOLDER|XXX|TBD)\b/;
+var REDACT_PATTERNS = [
+  /\bsk-[A-Za-z0-9]{20,}/g,
+  /Bearer\s+[A-Za-z0-9\-_]{20,}/g,
+  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g,
+  /\bAKIA[A-Z0-9]{16}\b/g,
+  /\bghp_[A-Za-z0-9]{20,}\b/g,
+  /\b(?:api[_-]?key|secret|password|passwd|token|access[_-]?key)\s*[=:]\s*["']?(?!<|YOUR|REPLACE|PLACEHOLDER|xxx|your)[A-Za-z0-9+/\-_]{16,}/gi
+];
+var UNIX_PATH_FIX_RE = /(?<![`'"/\w])(\/(?:home|usr|etc|var|root|opt|srv|tmp|proc|sys)\/\S+)/g;
+var WIN_PATH_FIX_RE = /\b([A-Z]:\\[\w\\.\- ]+)/g;
+var LOCALHOST_FIX_RE = /\blocalhost:(\d{2,5})\b/g;
 async function applyFixes(filePath, issues, options) {
   const dryRun = options?.dryRun ?? false;
   const fixedSet = /* @__PURE__ */ new Set();
@@ -46,8 +60,7 @@ async function applyFixes(filePath, issues, options) {
       skippedSet.add(issue.ruleId);
     }
   }
-  const hasTodo = issues.some((i) => i.ruleId === "todo-in-instructions");
-  if (hasTodo) {
+  if (issues.some((i) => i.ruleId === "todo-in-instructions")) {
     const lines = content.split("\n");
     let changed = false;
     const cleaned = lines.map((line) => {
@@ -62,8 +75,7 @@ async function applyFixes(filePath, issues, options) {
       fixedSet.add("todo-in-instructions");
     }
   }
-  const hasUnclosed = issues.some((i) => i.ruleId === "unclosed-code-block");
-  if (hasUnclosed) {
+  if (issues.some((i) => i.ruleId === "unclosed-code-block")) {
     if (!content.endsWith("\n")) content += "\n";
     content += "```\n";
     fixedSet.add("unclosed-code-block");
@@ -73,10 +85,8 @@ async function applyFixes(filePath, issues, options) {
   );
   if (emptyIssues.length > 0) {
     const lines = content.split("\n");
-    const sortedDesc = [...emptyIssues].sort((a, b) => b.line - a.line);
-    for (const issue of sortedDesc) {
-      const idx = issue.line - 1;
-      lines.splice(idx + 1, 0, "", "_No content yet \u2014 add instructions here._");
+    for (const issue of [...emptyIssues].sort((a, b) => b.line - a.line)) {
+      lines.splice(issue.line - 1 + 1, 0, "", "_No content yet \u2014 add instructions here._");
     }
     content = lines.join("\n");
     fixedSet.add("empty-section");
@@ -88,11 +98,9 @@ async function applyFixes(filePath, issues, options) {
     const lines = content.split("\n");
     const HEADING_RE = /^#{1,6}\s/;
     const PLACEHOLDER = '> \u2705 **Success criteria:** Done when _<describe the expected outcome \u2014 e.g. "all tests pass", "the feature works as expected">_';
-    const sortedDesc = [...successIssues].sort((a, b) => b.line - a.line);
-    for (const issue of sortedDesc) {
-      const headingIdx = issue.line - 1;
+    for (const issue of [...successIssues].sort((a, b) => b.line - a.line)) {
       let insertIdx = lines.length;
-      for (let i = headingIdx + 1; i < lines.length; i++) {
+      for (let i = issue.line; i < lines.length; i++) {
         if (HEADING_RE.test(lines[i] ?? "")) {
           insertIdx = i;
           break;
@@ -102,6 +110,45 @@ async function applyFixes(filePath, issues, options) {
     }
     content = lines.join("\n");
     fixedSet.add("missing-success-criteria");
+  }
+  if (issues.some((i) => i.ruleId === "sensitive-data")) {
+    let redacted = content;
+    for (const re of REDACT_PATTERNS) {
+      re.lastIndex = 0;
+      redacted = redacted.replace(re, (match) => {
+        const eqIdx = match.search(/[=:]\s*["']?/);
+        if (eqIdx > 0) return `${match.slice(0, eqIdx + 1)} [REDACTED]`;
+        return "[REDACTED]";
+      });
+    }
+    if (redacted !== content) {
+      content = redacted;
+      fixedSet.add("sensitive-data");
+    }
+  }
+  if (issues.some((i) => i.ruleId === "missing-agent-persona")) {
+    const PERSONA_STUB = "<!-- agent-doctor: update this persona statement -->\nYou are a helpful AI assistant. Describe your specific role, expertise, and constraints here.\n\n";
+    const fmMatch = /^---\n[\s\S]*?\n---\n/.exec(content);
+    if (fmMatch) {
+      const after = fmMatch.index + fmMatch[0].length;
+      content = content.slice(0, after) + PERSONA_STUB + content.slice(after);
+    } else {
+      content = PERSONA_STUB + content;
+    }
+    fixedSet.add("missing-agent-persona");
+  }
+  if (issues.some((i) => i.ruleId === "hardcoded-environment")) {
+    let fixed = content;
+    fixed = fixed.replace(
+      UNIX_PATH_FIX_RE,
+      (_, p) => p.startsWith("/home/") ? p.replace(/^\/home\/[^/]+/, "$HOME") : p.replace(/^\/[^/]+\/[^/]+/, "${PROJECT_ROOT}")
+    );
+    fixed = fixed.replace(WIN_PATH_FIX_RE, "%PROJECT_ROOT%\\");
+    fixed = fixed.replace(LOCALHOST_FIX_RE, "localhost:$PORT");
+    if (fixed !== content) {
+      content = fixed;
+      fixedSet.add("hardcoded-environment");
+    }
   }
   if (!dryRun && content !== original) {
     writeFileSync(filePath, content, "utf8");
@@ -695,12 +742,19 @@ function aggregateSection(results) {
 
 // src/analyser/history.ts
 import { execFileSync } from "child_process";
-import { extname, dirname, relative, resolve as resolve3 } from "path";
+import { extname, dirname, relative, resolve as resolve3, basename as basename3, join as join2 } from "path";
 import { execFile } from "child_process";
+import { realpathSync } from "fs";
 import { promisify } from "util";
 var execFileAsync = promisify(execFile);
 async function runHistory(filePath, config, n = 10) {
-  const absPath = resolve3(process.cwd(), filePath);
+  const rawAbsPath = resolve3(process.cwd(), filePath);
+  let absPath;
+  try {
+    absPath = join2(realpathSync(dirname(rawAbsPath)), basename3(rawAbsPath));
+  } catch {
+    absPath = rawAbsPath;
+  }
   const fileDir = dirname(absPath);
   let gitRoot;
   try {
@@ -874,7 +928,7 @@ function formatHistoryJson(entries, filePath) {
 
 // src/output/org-reporter.ts
 import chalk5 from "chalk";
-import { basename as basename3, relative as relative2 } from "path";
+import { basename as basename4, relative as relative2 } from "path";
 function gradeCount(grade, count) {
   if (count === 0) return chalk5.dim("0");
   if (grade === "A") return chalk5.green(String(count));
@@ -890,7 +944,7 @@ function scoreBar(score, width = 20) {
   return chalk5.red(bar2);
 }
 function fileTypeLabel(filePath) {
-  const base = basename3(filePath);
+  const base = basename4(filePath);
   if (/^claude\.md$/i.test(base)) return "CLAUDE.md";
   if (/^agents\.md$/i.test(base)) return "AGENTS.md";
   if (/^gemini\.md$/i.test(base)) return "GEMINI.md";
@@ -974,7 +1028,7 @@ function formatOrgReport(results, root) {
   lines.push(chalk5.bold("Files"));
   lines.push("");
   for (const r of results) {
-    const rel = relative2(root, r.file) || basename3(r.file);
+    const rel = relative2(root, r.file) || basename4(r.file);
     const scoreStr = scoreColour2(r.score, String(r.score).padStart(3));
     const issueStr = r.issues.length === 0 ? chalk5.green("\u2713") : chalk5.yellow(`${r.issues.length} issue${r.issues.length !== 1 ? "s" : ""}`);
     lines.push(`  ${scoreStr}  ${chalk5.dim(r.grade)}  ${issueStr.padEnd(10)}  ${rel}`);
@@ -1001,7 +1055,7 @@ function formatOrgReportJson(results, root) {
         grades: g.grades
       })),
       files: results.map((r) => ({
-        file: relative2(root, r.file) || basename3(r.file),
+        file: relative2(root, r.file) || basename4(r.file),
         score: r.score,
         grade: r.grade,
         readinessScore: r.readinessScore,
