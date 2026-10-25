@@ -23,24 +23,9 @@ jobs:
         run: |
           gh release create v1.0.0 \
             --target 3dcdbc3 \
-            --title "v1.0.0 — Agent Readiness rules, auto-fix expansion, JSON Schema" \
-            --notes "## What's new in v1.0.0
-
-**5 new structural rules** (zero API cost):
-
-| Rule | Severity | What it catches |
-|------|----------|----------------|
-| \`sensitive-data\` | critical | API keys, Bearer tokens, private key blocks, AWS/GitHub credentials |
-| \`missing-agent-persona\` | warning | Instruction files with no role/identity statement |
-| \`redundant-instructions\` | warning | Same directive repeated 3+ times (fuzzy deduplication) |
-| \`missing-examples\` | suggestion | Complex multi-condition sections with no inline example |
-| \`instruction-ordering\` | suggestion | Security/constraint headings buried after task sections |
-
-**Auto-fix expansion** — 3 new \`--fix\` targets: \`sensitive-data\`, \`missing-agent-persona\`, \`hardcoded-environment\`
-
-**VS Code extension v0.2.0** — Quick Fix support for 3 new rules.
-
-**JSON Schema** (\`agent-doctor.schema.json\`) for IDE validation and autocomplete." || echo "v1.0.0 may already exist, skipping"
+            --title 'v1.0.0 - Agent Readiness rules, auto-fix expansion, JSON Schema' \
+            --notes 'New rules: sensitive-data, missing-agent-persona, redundant-instructions, missing-examples, instruction-ordering. Auto-fix expansion. VS Code extension v0.2.0. JSON Schema for IDE autocomplete.' \
+            || echo 'v1.0.0 already exists, skipping'
 
       - name: Create v1.1.0 release
         env:
@@ -48,14 +33,9 @@ jobs:
         run: |
           gh release create v1.1.0 \
             --target 38ca070 \
-            --title "v1.1.0 — Rule precision, badge format, extended secret detection" \
-            --notes "## What's new in v1.1.0
-
-- **\`todo-in-instructions\` severity** downgraded critical → warning
-- **False-positive reduction** — markers inside code blocks, table rows, and inline code are now skipped
-- **\`sensitive-data\` expanded patterns** — Slack, Google API, Stripe live keys, GitHub fine-grained PATs
-- **\`sensitive-data\` context masking** — context field shows masked value, not the raw secret
-- **\`--format badge\`** — emits a shields.io endpoint JSON blob for README status badges" || echo "v1.1.0 may already exist, skipping"
+            --title 'v1.1.0 - Rule precision, badge format, extended secret detection' \
+            --notes 'todo-in-instructions severity downgraded to warning; false-positive reduction for code blocks/tables. sensitive-data expanded: Slack, Google API, Stripe, GitHub fine-grained PATs, context masking. New --format badge for shields.io.' \
+            || echo 'v1.1.0 already exists, skipping'
 
       - name: Create v1.2.0 release
         env:
@@ -63,11 +43,9 @@ jobs:
         run: |
           gh release create v1.2.0 \
             --target ae07057 \
-            --title "v1.2.0 — prompt-injection rule + SARIF output" \
-            --notes "## What's new in v1.2.0
-
-- **\`prompt-injection\` structural rule** (critical) — detects prompt injection attempts: override openers and blanket delegation
-- **\`--format sarif\`** — emits SARIF 2.1.0 JSON for upload to GitHub Code Scanning" || echo "v1.2.0 may already exist, skipping"
+            --title 'v1.2.0 - prompt-injection rule + SARIF output' \
+            --notes 'New rule: prompt-injection (critical) detects override openers and blanket delegation. New --format sarif emits SARIF 2.1.0 JSON for GitHub Code Scanning upload.' \
+            || echo 'v1.2.0 already exists, skipping'
 
       - name: Create v1.3.0 release
         env:
@@ -75,10 +53,9 @@ jobs:
         run: |
           gh release create v1.3.0 \
             --target 03b6feb \
-            --title "v1.3.0 — --init-workflow generates GitHub Actions CI" \
-            --notes "## What's new in v1.3.0
-
-- **\`--init-workflow\`** — generates .github/workflows/agent-doctor.yml for CI. Two variants: basic (run + fail) and sarif (+ upload to GitHub Code Scanning / Security tab)." || echo "v1.3.0 may already exist, skipping"
+            --title 'v1.3.0 - --init-workflow generates GitHub Actions CI' \
+            --notes 'New --init-workflow flag generates .github/workflows/agent-doctor.yml for CI. Two variants: basic (run + fail) and sarif (+ upload to GitHub Security tab).' \
+            || echo 'v1.3.0 already exists, skipping'
 
       - name: Create v1.4.0 release
         env:
@@ -86,12 +63,9 @@ jobs:
         run: |
           gh release create v1.4.0 \
             --target 9525b14 \
-            --title "v1.4.0 — AGENTS.md health rules + pre-commit hook installer" \
-            --notes "## What's new in v1.4.0
-
-- **\`missing-handoff-protocol\`** (warning, AGENTS.md only) — flags AGENTS.md files with no escalation or handoff language
-- **\`missing-agent-scope\`** (warning, AGENTS.md only) — flags AGENTS.md files with no scope definition
-- **\`--init-pre-commit\`** — installs a pre-commit hook (native .git/hooks or pre-commit framework variant)" || echo "v1.4.0 may already exist, skipping"
+            --title 'v1.4.0 - AGENTS.md health rules + pre-commit hook installer' \
+            --notes 'New AGENTS.md-specific rules: missing-handoff-protocol and missing-agent-scope (both warning). New --init-pre-commit installs a pre-commit hook (native or pre-commit framework variant).' \
+            || echo 'v1.4.0 already exists, skipping'
 
       - name: Create v1.5.0 release
         env:
@@ -99,10 +73,6 @@ jobs:
         run: |
           gh release create v1.5.0 \
             --target f8d4a60 \
-            --title "v1.5.0 — broken-section-reference rule + HTML reports" \
-            --notes "## What's new in v1.5.0
-
-- **\`broken-section-reference\`** (warning) — detects 'see the X section' cross-references where heading X does not exist in the same file
-- **\`--format html\`** — generates a self-contained HTML health report with score/grade tiles, collapsible issue list, readiness dimension bars, and dark mode
-
-519 tests, all pass." || echo "v1.5.0 may already exist, skipping"
+            --title 'v1.5.0 - broken-section-reference rule + HTML reports' \
+            --notes 'New rule: broken-section-reference (warning) detects cross-references to non-existent headings. New --format html generates a self-contained HTML health report with dark mode, score tiles, and readiness dimension bars. 519 tests, all pass.' \
+            || echo 'v1.5.0 already exists, skipping'
