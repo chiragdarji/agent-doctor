@@ -31,6 +31,8 @@ agent-doctor [file] [options]
 | `--history [n]` | Score trend for the last `n` commits that touched the file (default: 10) |
 | `--compare <ref>` | Side-by-side diff against a git ref (e.g. `HEAD~1`) or another file path |
 | `--gate` | Orchestrator gate mode — outputs machine-readable JSON pass/fail |
+| `--init-workflow` | Generate `.github/workflows/agent-doctor.yml` for CI |
+| `--workflow-variant <v>` | Workflow template: `basic` (run + fail) \| `sarif` (+ upload to GitHub Code Scanning) |
 
 ### Editing
 
@@ -119,6 +121,12 @@ agent-doctor --init --type claude
 
 # Start MCP server
 agent-doctor --mcp
+
+# Generate basic CI workflow
+agent-doctor --init-workflow
+
+# Generate CI workflow with SARIF upload to GitHub Security tab
+agent-doctor --init-workflow --workflow-variant sarif
 ```
 
 ---

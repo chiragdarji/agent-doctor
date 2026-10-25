@@ -26,6 +26,8 @@ import { formatCompare, formatCompareJson } from './output/compare-reporter.js';
 import { evaluateGate, formatGateJson, formatOrgGateJson } from './output/gate-reporter.js';
 import type { AnalysisResult, Severity } from './types.js';
 import type { InitType } from './init.js';
+import { initWorkflow } from './init-workflow.js';
+import type { WorkflowVariant } from './init-workflow.js';
 
 const program = new Command();
 
@@ -57,6 +59,8 @@ program
   .option('--org [dir]', 'Org-level health dashboard — recursively discovers all instruction files under dir (default: cwd)')
   .option('--compare <ref>', 'Compare current file against a git ref (HEAD~1) or another file path')
   .option('--gate', 'Orchestrator gate mode — structural-only check, JSON pass/fail, exit 0=safe exit 1=blocked')
+  .option('--init-workflow', 'Generate a GitHub Actions workflow file (.github/workflows/agent-doctor.yml)')
+  .option('--workflow-variant <variant>', 'Workflow template: basic (run + fail) | sarif (+ upload to Code Scanning)', 'basic')
   .option('--mcp', 'Start MCP server mode (v0.2)')
   .action(async (file: string | undefined, opts: {
     all?: boolean;
@@ -75,6 +79,8 @@ program
     org?: string | boolean;
     compare?: string;
     gate?: boolean;
+    initWorkflow?: boolean;
+    workflowVariant: string;
     mcp?: boolean;
   }) => {
     if (opts.init) {
@@ -94,6 +100,32 @@ program
         const relPath = relative(cwd, result.filePath);
         process.stdout.write(`✅  ${verb} ${result.filePath}\n`);
         process.stdout.write(`    Run \`npx @chiragdarji/agent-doctor ${relPath}\` to validate.\n`);
+      } catch (err) {
+        process.stderr.write(`${String(err)}\n`);
+        process.exit(1);
+      }
+      return;
+    }
+
+    if (opts.initWorkflow) {
+      const VALID_VARIANTS: WorkflowVariant[] = ['basic', 'sarif'];
+      const cwd = process.cwd();
+      let variant: WorkflowVariant;
+      if (VALID_VARIANTS.includes(opts.workflowVariant as WorkflowVariant)) {
+        variant = opts.workflowVariant as WorkflowVariant;
+      } else {
+        process.stderr.write(`Unknown --workflow-variant "${opts.workflowVariant}" — valid values: basic | sarif. Defaulting to basic.\n`);
+        variant = 'basic';
+      }
+      try {
+        const result = await initWorkflow({ cwd, variant, force: opts.force ?? false });
+        const verb = result.existed ? 'Overwrote' : 'Created';
+        process.stdout.write(`✅  ${verb} ${result.filePath}\n`);
+        if (variant === 'sarif') {
+          process.stdout.write(`    Results will appear in the GitHub Security tab after the first run.\n`);
+        } else {
+          process.stdout.write(`    To also upload results to GitHub Security tab, run: --init-workflow --workflow-variant sarif\n`);
+        }
       } catch (err) {
         process.stderr.write(`${String(err)}\n`);
         process.exit(1);

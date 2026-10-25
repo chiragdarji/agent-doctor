@@ -21,8 +21,8 @@ import "./chunk-N25LFLMI.js";
 // src/cli.ts
 import chalk7 from "chalk";
 import { Command } from "commander";
-import { resolve as resolve5, relative as relative3, dirname as dirname2, join as join3, basename as basename5, extname as extname2 } from "path";
-import { existsSync as existsSync3, watch as fsWatch } from "fs";
+import { resolve as resolve6, relative as relative3, dirname as dirname2, join as join4, basename as basename5, extname as extname2 } from "path";
+import { existsSync as existsSync4, watch as fsWatch } from "fs";
 import { fileURLToPath } from "url";
 import { spawn } from "child_process";
 
@@ -1329,13 +1329,124 @@ function formatOrgGateJson(results, failOn) {
   return JSON.stringify(out, null, 2);
 }
 
+// src/init-workflow.ts
+import { writeFileSync as writeFileSync3, mkdirSync as mkdirSync2, existsSync as existsSync3 } from "fs";
+import { resolve as resolve5, join as join3 } from "path";
+import { createInterface as createInterface2 } from "readline";
+var WORKFLOW_BASIC = `name: Agent Doctor
+
+on:
+  push:
+    paths:
+      - '**CLAUDE.md'
+      - '**AGENTS.md'
+      - '**GEMINI.md'
+      - '.cursor/rules/**'
+  pull_request:
+    paths:
+      - '**CLAUDE.md'
+      - '**AGENTS.md'
+      - '**GEMINI.md'
+      - '.cursor/rules/**'
+
+jobs:
+  analyse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run agent-doctor
+        run: npx --yes @chiragdarji/agent-doctor --all --structural-only --fail-on warning
+`;
+var WORKFLOW_SARIF = `name: Agent Doctor
+
+on:
+  push:
+    paths:
+      - '**CLAUDE.md'
+      - '**AGENTS.md'
+      - '**GEMINI.md'
+      - '.cursor/rules/**'
+  pull_request:
+    paths:
+      - '**CLAUDE.md'
+      - '**AGENTS.md'
+      - '**GEMINI.md'
+      - '.cursor/rules/**'
+
+jobs:
+  analyse:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write   # required for SARIF upload
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run agent-doctor (fail on warnings)
+        run: npx --yes @chiragdarji/agent-doctor --all --structural-only --fail-on warning
+
+      - name: Generate SARIF report
+        if: always()
+        run: |
+          npx --yes @chiragdarji/agent-doctor --all --structural-only --format sarif \\
+            > agent-doctor.sarif
+
+      - name: Upload SARIF to GitHub Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: agent-doctor.sarif
+          category: agent-doctor
+`;
+function workflowContent(variant) {
+  return variant === "sarif" ? WORKFLOW_SARIF : WORKFLOW_BASIC;
+}
+async function initWorkflow(options = {}) {
+  const cwd = options.cwd ?? process.cwd();
+  const variant = options.variant ?? "basic";
+  const force = options.force ?? false;
+  const workflowsDir = resolve5(join3(cwd, ".github", "workflows"));
+  const filePath = join3(workflowsDir, "agent-doctor.yml");
+  const existed = existsSync3(filePath);
+  if (existed && !force) {
+    const confirmed = await prompt(
+      `  ${filePath} already exists. Overwrite? (y/N) `
+    );
+    if (!confirmed) {
+      throw new Error(`Aborted \u2014 ${filePath} already exists. Use --force to overwrite.`);
+    }
+  }
+  mkdirSync2(workflowsDir, { recursive: true });
+  writeFileSync3(filePath, workflowContent(variant), "utf8");
+  return { filePath, existed };
+}
+async function prompt(question) {
+  return new Promise((resolve7) => {
+    const rl = createInterface2({ input: process.stdin, output: process.stdout });
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve7(answer.trim().toLowerCase() === "y");
+    });
+  });
+}
+
 // src/cli.ts
 var program = new Command();
-program.name("agent-doctor").description("Semantic health check for AI agent instruction files").version("1.2.0");
+program.name("agent-doctor").description("Semantic health check for AI agent instruction files").version("1.3.0");
 program.argument("[file]", "Path to the instruction file to analyse").option("--all", "Discover and analyse all instruction files in the project").option("--fail-on <severity>", "Exit with code 1 if any issue meets this severity", "critical").option("--format <format>", "Output format: text | json | badge | sarif (SARIF 2.1.0 for GitHub Code Scanning)", "text").option("--structural-only", "Skip semantic layer (no API key required)").option(
   "--model <id>",
   "Override LLM model (e.g. gpt-4o uses OPENAI_API_KEY; claude-* uses ANTHROPIC_API_KEY)"
-).option("--fix", "Auto-fix structural issues in-place (todo-in-instructions, unclosed-code-block, empty-section, missing-success-criteria)").option("--dry-run", "Preview --fix changes without writing to disk").option("--watch", "Re-run analysis on every file save \u2014 Ctrl+C to stop (single file only)").option("--init", "Scaffold a new agent instruction file template in the current directory").option("--type <type>", "Template type for --init: claude | cursor | agents", "claude").option("--force", "Overwrite existing files without prompting (use with --init)").option("--readiness-report", "Print a detailed per-dimension readiness breakdown instead of the standard issue list").option("--history [n]", "Show score trend for the last n git commits (default: 10)").option("--org [dir]", "Org-level health dashboard \u2014 recursively discovers all instruction files under dir (default: cwd)").option("--compare <ref>", "Compare current file against a git ref (HEAD~1) or another file path").option("--gate", "Orchestrator gate mode \u2014 structural-only check, JSON pass/fail, exit 0=safe exit 1=blocked").option("--mcp", "Start MCP server mode (v0.2)").action(async (file, opts) => {
+).option("--fix", "Auto-fix structural issues in-place (todo-in-instructions, unclosed-code-block, empty-section, missing-success-criteria)").option("--dry-run", "Preview --fix changes without writing to disk").option("--watch", "Re-run analysis on every file save \u2014 Ctrl+C to stop (single file only)").option("--init", "Scaffold a new agent instruction file template in the current directory").option("--type <type>", "Template type for --init: claude | cursor | agents", "claude").option("--force", "Overwrite existing files without prompting (use with --init)").option("--readiness-report", "Print a detailed per-dimension readiness breakdown instead of the standard issue list").option("--history [n]", "Show score trend for the last n git commits (default: 10)").option("--org [dir]", "Org-level health dashboard \u2014 recursively discovers all instruction files under dir (default: cwd)").option("--compare <ref>", "Compare current file against a git ref (HEAD~1) or another file path").option("--gate", "Orchestrator gate mode \u2014 structural-only check, JSON pass/fail, exit 0=safe exit 1=blocked").option("--init-workflow", "Generate a GitHub Actions workflow file (.github/workflows/agent-doctor.yml)").option("--workflow-variant <variant>", "Workflow template: basic (run + fail) | sarif (+ upload to Code Scanning)", "basic").option("--mcp", "Start MCP server mode (v0.2)").action(async (file, opts) => {
   if (opts.init) {
     const VALID_TYPES = ["claude", "cursor", "agents"];
     const cwd2 = process.cwd();
@@ -1362,8 +1473,38 @@ program.argument("[file]", "Path to the instruction file to analyse").option("--
     }
     return;
   }
+  if (opts.initWorkflow) {
+    const VALID_VARIANTS = ["basic", "sarif"];
+    const cwd2 = process.cwd();
+    let variant;
+    if (VALID_VARIANTS.includes(opts.workflowVariant)) {
+      variant = opts.workflowVariant;
+    } else {
+      process.stderr.write(`Unknown --workflow-variant "${opts.workflowVariant}" \u2014 valid values: basic | sarif. Defaulting to basic.
+`);
+      variant = "basic";
+    }
+    try {
+      const result = await initWorkflow({ cwd: cwd2, variant, force: opts.force ?? false });
+      const verb = result.existed ? "Overwrote" : "Created";
+      process.stdout.write(`\u2705  ${verb} ${result.filePath}
+`);
+      if (variant === "sarif") {
+        process.stdout.write(`    Results will appear in the GitHub Security tab after the first run.
+`);
+      } else {
+        process.stdout.write(`    To also upload results to GitHub Security tab, run: --init-workflow --workflow-variant sarif
+`);
+      }
+    } catch (err) {
+      process.stderr.write(`${String(err)}
+`);
+      process.exit(1);
+    }
+    return;
+  }
   if (opts.mcp) {
-    const mcpEntry = join3(dirname2(fileURLToPath(import.meta.url)), "mcp-server.js");
+    const mcpEntry = join4(dirname2(fileURLToPath(import.meta.url)), "mcp-server.js");
     const child = spawn(process.execPath, [mcpEntry], { stdio: "inherit" });
     child.on("exit", (code) => process.exit(code ?? 0));
     return;
@@ -1374,16 +1515,16 @@ program.argument("[file]", "Path to the instruction file to analyse").option("--
       process.exit(2);
     }
     const cwd2 = process.cwd();
-    const absFile = resolve5(cwd2, file);
+    const absFile = resolve6(cwd2, file);
     const config2 = loadConfig(cwd2);
     if (opts.model !== void 0 && opts.model.length > 0) config2.model = opts.model;
-    const isFilePath = existsSync3(opts.compare);
+    const isFilePath = existsSync4(opts.compare);
     let beforeResult;
     let beforeLabel;
     if (isFilePath) {
       const compareConfig = { ...config2, layers: ["structural"] };
       try {
-        beforeResult = await analyse(resolve5(cwd2, opts.compare), compareConfig);
+        beforeResult = await analyse(resolve6(cwd2, opts.compare), compareConfig);
       } catch (err) {
         process.stderr.write(`Error analysing ${opts.compare}: ${String(err)}
 `);
@@ -1462,7 +1603,7 @@ program.argument("[file]", "Path to the instruction file to analyse").option("--
     const n = typeof opts.history === "string" ? Math.max(1, parseInt(opts.history, 10) || 10) : 10;
     const config2 = loadConfig(cwd2);
     try {
-      const filePath = resolve5(cwd2, file);
+      const filePath = resolve6(cwd2, file);
       const entries = await runHistory(filePath, config2, n);
       if (opts.format === "json") {
         process.stdout.write(formatHistoryJson(entries, filePath) + "\n");
@@ -1478,7 +1619,7 @@ program.argument("[file]", "Path to the instruction file to analyse").option("--
   }
   if (opts.org !== void 0) {
     const cwd2 = process.cwd();
-    const orgRoot = typeof opts.org === "string" && opts.org.length > 0 ? resolve5(cwd2, opts.org) : cwd2;
+    const orgRoot = typeof opts.org === "string" && opts.org.length > 0 ? resolve6(cwd2, opts.org) : cwd2;
     const config2 = loadConfig(cwd2);
     if (opts.model !== void 0 && opts.model.length > 0) config2.model = opts.model;
     config2.layers = ["structural"];
@@ -1543,8 +1684,8 @@ program.argument("[file]", "Path to the instruction file to analyse").option("--
       }
     }
   } else if (file !== void 0) {
-    const filePath = resolve5(cwd, file);
-    if (!existsSync3(filePath)) {
+    const filePath = resolve6(cwd, file);
+    if (!existsSync4(filePath)) {
       process.stderr.write(`File not found: ${filePath}
 `);
       process.exit(2);
@@ -1558,13 +1699,13 @@ program.argument("[file]", "Path to the instruction file to analyse").option("--
     }
   } else {
     const candidates = ["CLAUDE.md", "AGENTS.md", "GEMINI.md", ".cursorrules"];
-    const found = candidates.find((c) => existsSync3(resolve5(cwd, c)));
+    const found = candidates.find((c) => existsSync4(resolve6(cwd, c)));
     if (found === void 0) {
       program.help();
       process.exit(0);
     }
     try {
-      results = [await analyse(resolve5(cwd, found), config)];
+      results = [await analyse(resolve6(cwd, found), config)];
     } catch (err) {
       process.stderr.write(`Error analysing ${found}: ${String(err)}
 `);

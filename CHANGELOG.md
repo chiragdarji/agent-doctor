@@ -4,6 +4,22 @@ All notable changes to `agent-doctor` are documented here.
 
 ---
 
+## [1.3.0] — 2026-10-25
+
+### Added
+
+- **`--init-workflow`** — generates `.github/workflows/agent-doctor.yml` for CI. Two variants:
+  - `basic` (default): runs `--all --structural-only --fail-on warning` on pushes/PRs that touch instruction files
+  - `sarif`: adds SARIF generation and `github/codeql-action/upload-sarif@v3` upload step (requires `security-events: write` permission). Results appear in the GitHub Security tab.
+  - Trigger paths include `**CLAUDE.md`, `**AGENTS.md`, `**GEMINI.md`, `.cursor/rules/**`
+  - `--force` overwrites an existing workflow file without prompting
+
+### Tests
+
+- +10 new tests for `initWorkflow` (476 total, all pass)
+
+---
+
 ## [1.2.0] — 2026-10-25
 
 ### Added
