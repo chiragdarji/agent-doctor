@@ -16,6 +16,7 @@ import {
   formatResultJson,
   formatResultsJson,
 } from './output/formatter.js';
+import { formatBadge } from './output/badge.js';
 import { formatReadinessReport } from './output/readiness-reporter.js';
 import { formatOrgReport, formatOrgReportJson } from './output/org-reporter.js';
 import { runHistory } from './analyser/history.js';
@@ -38,7 +39,7 @@ program
   .argument('[file]', 'Path to the instruction file to analyse')
   .option('--all', 'Discover and analyse all instruction files in the project')
   .option('--fail-on <severity>', 'Exit with code 1 if any issue meets this severity', 'critical')
-  .option('--format <format>', 'Output format: text or json', 'text')
+  .option('--format <format>', 'Output format: text | json | badge (shields.io endpoint JSON)', 'text')
   .option('--structural-only', 'Skip semantic layer (no API key required)')
   .option(
     '--model <id>',
@@ -356,9 +357,14 @@ program
           ? formatResultJson(results[0]!)
           : formatResultsJson(results)) + '\n',
       );
+    } else if (opts.format === 'badge') {
+      process.stdout.write(formatBadge(results) + '\n');
     } else if (opts.readinessReport) {
       process.stdout.write(formatReadinessReport(results) + '\n');
     } else {
+      if (opts.format !== 'text') {
+        process.stderr.write(`Unknown --format "${opts.format}" — valid values: text | json | badge. Defaulting to text.\n`);
+      }
       process.stdout.write(
         (results.length === 1 ? formatResult(results[0]!) : formatResults(results)) + '\n',
       );

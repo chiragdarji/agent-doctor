@@ -82,9 +82,11 @@ An odd number of ` ``` ` or `~~~` fences means everything after the unclosed fen
 ---
 
 #### `todo-in-instructions`
-**Severity:** critical
+**Severity:** warning
 
 Markers like `TODO`, `FIXME`, `HACK`, `PLACEHOLDER`, `XXX`, or `TBD` in instruction files are followed literally by agents. They describe unfinished intent and must be replaced with real instructions before deployment.
+
+**Skipped contexts:** fenced code blocks (` ``` ` / `~~~`), Markdown table rows (`| … |`), and inline code spans (`` `TODO` ``). These contexts document the rule rather than embody it.
 
 **Auto-fixable:** replaces the line with an HTML comment.
 
@@ -198,16 +200,21 @@ Maps to **Bounded** dimension.
 #### `sensitive-data`
 **Severity:** critical
 
-API keys, Bearer tokens, private key blocks, AWS access keys, and GitHub personal access tokens must never appear in instruction files. These files are often committed to version control and sent to LLM APIs.
+API keys, Bearer tokens, private key blocks, and provider tokens must never appear in instruction files. These files are often committed to version control and sent directly to LLM APIs.
 
 Detected patterns include:
-- `sk-[A-Za-z0-9]{20,}` (Anthropic/OpenAI keys)
+- `sk-ant-…` / `sk-proj-…` (Anthropic and OpenAI API keys)
 - `Bearer <token>` (authentication headers)
 - `-----BEGIN PRIVATE KEY-----` blocks
 - `AKIA[A-Z0-9]{16}` (AWS access keys)
-- `ghp_[A-Za-z0-9]{20,}` (GitHub PATs)
+- `ghp_…` / `github_pat_…` (GitHub PATs)
+- `xoxb-…` / `xoxp-…` (Slack tokens)
+- `AIza…` (Google API keys)
+- `sk_live_…` (Stripe live secret keys)
 
-Lines containing "example", "e.g.", "placeholder", "YOUR_", or "[REDACTED]" are skipped.
+**Placeholder detection:** when "example", "e.g.", "replace", "YOUR_", or "[REDACTED]" appears within 50 characters of the matched value (outside it), the match is skipped. This avoids false positives on documented illustrative values while still flagging keys that happen to appear near unrelated text containing those words.
+
+**Context masking:** the `context` field in the issue output never contains the real secret — it is masked as `sk-a****uvwx`.
 
 **Auto-fixable:** replaces matched credentials with `[REDACTED]`.
 

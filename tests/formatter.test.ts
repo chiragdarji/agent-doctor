@@ -6,6 +6,7 @@ import {
   formatResultJson,
   formatResultsJson,
 } from '../src/output/formatter.js';
+import { formatBadge } from '../src/output/badge.js';
 import type { AnalysisResult } from '../src/types.js';
 
 // Disable chalk colours in tests for predictable string matching
@@ -232,5 +233,81 @@ describe('formatResultsJson', () => {
   it('empty array produces []', () => {
     const output = formatResultsJson([]);
     expect(JSON.parse(output)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatBadge
+// ---------------------------------------------------------------------------
+describe('formatBadge', () => {
+  it('returns lightgrey "no files" badge for empty results', () => {
+    const badge = JSON.parse(formatBadge([]));
+    expect(badge.color).toBe('lightgrey');
+    expect(badge.message).toBe('no files');
+  });
+
+  it('returns brightgreen for a perfect score', () => {
+    const badge = JSON.parse(formatBadge([makeResult({ score: 100, grade: 'A', issues: [] })]));
+    expect(badge.color).toBe('brightgreen');
+  });
+
+  it('shows "pass" when there are zero issues', () => {
+    const badge = JSON.parse(formatBadge([makeResult({ score: 97, grade: 'A', issues: [] })]));
+    expect(badge.message).toContain('pass');
+    expect(badge.message).toContain('A');
+    expect(badge.message).toContain('97');
+  });
+
+  it('shows issue count when issues are present', () => {
+    const result = makeResult({
+      score: 64,
+      grade: 'C',
+      issues: [
+        { ruleId: 'empty-section', severity: 'warning', message: 'M', suggestion: 'S' },
+        { ruleId: 'duplicate-heading', severity: 'warning', message: 'M', suggestion: 'S' },
+      ],
+    });
+    const badge = JSON.parse(formatBadge([result]));
+    expect(badge.message).toContain('2 issues');
+    expect(badge.message).toContain('C');
+  });
+
+  it('shows "1 issue" (singular) for exactly one issue', () => {
+    const result = makeResult({
+      score: 70,
+      grade: 'B',
+      issues: [{ ruleId: 'empty-section', severity: 'suggestion', message: 'M', suggestion: 'S' }],
+    });
+    const badge = JSON.parse(formatBadge([result]));
+    expect(badge.message).toContain('1 issue');
+    expect(badge.message).not.toContain('1 issues');
+  });
+
+  it('uses worst grade across multiple results', () => {
+    const results = [
+      makeResult({ score: 90, grade: 'A', issues: [] }),
+      makeResult({ score: 50, grade: 'F', issues: [{ ruleId: 'empty-section', severity: 'warning', message: 'M', suggestion: 'S' }] }),
+    ];
+    const badge = JSON.parse(formatBadge(results));
+    expect(badge.message).toContain('F');
+  });
+
+  it('uses avg score label for multiple results', () => {
+    const results = [
+      makeResult({ score: 80, grade: 'B', issues: [] }),
+      makeResult({ score: 60, grade: 'C', issues: [] }),
+    ];
+    const badge = JSON.parse(formatBadge(results));
+    expect(badge.message).toContain('avg');
+  });
+
+  it('returns yellow for scores in 60-84 range', () => {
+    const badge = JSON.parse(formatBadge([makeResult({ score: 72, grade: 'C', issues: [] })]));
+    expect(badge.color).toBe('yellow');
+  });
+
+  it('returns red for scores below 60', () => {
+    const badge = JSON.parse(formatBadge([makeResult({ score: 45, grade: 'F', issues: [] })]));
+    expect(badge.color).toBe('red');
   });
 });

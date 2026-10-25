@@ -15,17 +15,32 @@ const TODO_RE = /\b(TODO|FIXME|HACK|PLACEHOLDER|XXX|TBD)\b/;
 export const todoInInstructions: StructuralRule = (content: string, _filePath: string): Issue[] => {
   const lines = content.split('\n');
   const issues: Issue[] = [];
+  let inCodeBlock = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i] ?? '';
 
-    // Skip lines inside code blocks (between ``` fences) — TODOs in examples are fine
-    const match = TODO_RE.exec(line);
+    // Track fenced code blocks (``` or ~~~)
+    if (/^(`{3,}|~{3,})/.test(line.trim())) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+
+    // Skip code blocks — TODOs in examples are intentional
+    if (inCodeBlock) continue;
+
+    // Skip table rows — TODOs in documentation tables describe the rule, not instructions
+    if (/^\s*\|/.test(line)) continue;
+
+    // Strip inline code spans before matching so `TODO` in code doesn't trigger
+    const stripped = line.replace(/`[^`]*`/g, '');
+
+    const match = TODO_RE.exec(stripped);
     if (!match) continue;
 
     issues.push({
       ruleId: 'todo-in-instructions',
-      severity: 'critical',
+      severity: 'warning',
       message: `Incomplete instruction marker "${match[0]}" found — agent will follow this literally`,
       suggestion: 'Replace the placeholder with the actual instruction before using this file',
       line: i + 1,

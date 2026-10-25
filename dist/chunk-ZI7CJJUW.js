@@ -334,13 +334,21 @@ var TODO_RE = /\b(TODO|FIXME|HACK|PLACEHOLDER|XXX|TBD)\b/;
 var todoInInstructions = (content, _filePath) => {
   const lines = content.split("\n");
   const issues = [];
+  let inCodeBlock = false;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i] ?? "";
-    const match = TODO_RE.exec(line);
+    if (/^(`{3,}|~{3,})/.test(line.trim())) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+    if (inCodeBlock) continue;
+    if (/^\s*\|/.test(line)) continue;
+    const stripped = line.replace(/`[^`]*`/g, "");
+    const match = TODO_RE.exec(stripped);
     if (!match) continue;
     issues.push({
       ruleId: "todo-in-instructions",
-      severity: "critical",
+      severity: "warning",
       message: `Incomplete instruction marker "${match[0]}" found \u2014 agent will follow this literally`,
       suggestion: "Replace the placeholder with the actual instruction before using this file",
       line: i + 1,
@@ -447,21 +455,48 @@ var missingToolList = (content, _filePath) => {
 
 // src/rules/structural/sensitive-data.ts
 var SECRET_PATTERNS = [
-  // API key prefixes used by major providers
-  { re: /\bsk-[A-Za-z0-9]{20,}/g, label: "OpenAI/Anthropic API key (sk-...)" },
-  { re: /\bANTHROPIC_API_KEY\s*=\s*["']?sk-ant-[A-Za-z0-9\-_]{20,}/g, label: "Anthropic API key assignment" },
+  // Anthropic API keys — hyphens are part of the key format (sk-ant-api03-…)
+  { re: /\bsk-ant-[A-Za-z0-9_-]{20,}/g, label: "Anthropic API key" },
+  // OpenAI project keys (sk-proj-…)
+  { re: /\bsk-proj-[A-Za-z0-9_-]{20,}/g, label: "OpenAI project API key" },
+  // Generic OpenAI / other sk- keys (no hyphens after prefix)
+  { re: /\bsk-[A-Za-z0-9]{20,}/g, label: "OpenAI API key" },
   // Generic secret assignments with real-looking values (not placeholders)
-  { re: /\b(?:api[_-]?key|secret|password|passwd|token|access[_-]?key)\s*[=:]\s*["']?(?!<|YOUR|REPLACE|PLACEHOLDER|xxx|your)[A-Za-z0-9+/\-_]{16,}/gi, label: "Hardcoded credential" },
+  { re: /\b(?:api[_-]?key|secret|password|passwd|token|access[_-]?key)\s*[=:]\s*["']?(?!<|YOUR|REPLACE|PLACEHOLDER|xxx|your)[A-Za-z0-9+/_-]{16,}/gi, label: "Hardcoded credential" },
   // Bearer tokens in headers
-  { re: /Bearer\s+[A-Za-z0-9\-_]{20,}/g, label: "Bearer token" },
+  { re: /Bearer\s+[A-Za-z0-9_-]{20,}/g, label: "Bearer token" },
   // Private key blocks
   { re: /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g, label: "Private key block" },
   // AWS access keys
   { re: /\bAKIA[A-Z0-9]{16}\b/g, label: "AWS access key ID" },
-  // GitHub personal access tokens
-  { re: /\bghp_[A-Za-z0-9]{20,}\b/g, label: "GitHub personal access token" }
+  // GitHub personal access tokens (classic: ghp_; fine-grained: github_pat_)
+  { re: /\bghp_[A-Za-z0-9]{20,}\b/g, label: "GitHub personal access token" },
+  { re: /\bgithub_pat_[A-Za-z0-9_]{22,}\b/g, label: "GitHub fine-grained personal access token" },
+  // Slack tokens (xoxb-, xoxp-, xoxa-, xoxr-, xoxs-)
+  { re: /\bxox[baprs]-[A-Za-z0-9-]{10,}/g, label: "Slack token" },
+  // Google API keys
+  { re: /\bAIza[0-9A-Za-z_-]{35}\b/g, label: "Google API key" },
+  // Stripe live secret keys
+  { re: /\bsk_live_[A-Za-z0-9]{24,}\b/g, label: "Stripe secret key" }
 ];
-var EXAMPLE_LINE_RE2 = /\b(example|e\.g\.|sample|placeholder|replace|your[-_ ]|<your|YOUR_|REDACTED|\[REDACTED\])\b/i;
+function maskSecret(value) {
+  if (value.length <= 12) return "****";
+  return `${value.slice(0, 4)}****${value.slice(-4)}`;
+}
+function redactContext(line, match) {
+  const matched = match[0];
+  const masked = maskSecret(matched);
+  return line.replace(matched, masked).slice(0, 80);
+}
+function isPlaceholderContext(line, match) {
+  const matchStart = match.index ?? 0;
+  const matchEnd = matchStart + match[0].length;
+  const before = line.slice(Math.max(0, matchStart - 50), matchStart);
+  const after = line.slice(matchEnd, Math.min(line.length, matchEnd + 50));
+  return /\b(example|e\.g\.|sample|replace|placeholder|your[-_ ]key|your[-_ ]api|<your|YOUR_|REDACTED|\[REDACTED\])\b/i.test(
+    before + after
+  );
+}
 var sensitiveData = (content, _filePath) => {
   const lines = content.split("\n");
   const issues = [];
@@ -473,11 +508,11 @@ var sensitiveData = (content, _filePath) => {
       inCodeBlock = !inCodeBlock;
       continue;
     }
-    if (EXAMPLE_LINE_RE2.test(line)) continue;
     for (const { re, label } of SECRET_PATTERNS) {
       re.lastIndex = 0;
       const match = re.exec(line);
       if (!match) continue;
+      if (isPlaceholderContext(line, match)) continue;
       const dedupeKey = `${label}:${i}`;
       if (seen.has(dedupeKey)) continue;
       seen.add(dedupeKey);
@@ -487,7 +522,7 @@ var sensitiveData = (content, _filePath) => {
         message: `Possible ${label} found in instruction file`,
         suggestion: "Remove the credential and replace with an environment variable reference (e.g. $API_KEY) or a placeholder like [REDACTED]",
         line: i + 1,
-        context: line.trim().slice(0, 80)
+        context: redactContext(line.trim(), match)
       });
     }
   }
@@ -755,4 +790,4 @@ function runStructuralAnalysis(parsed, config, pluginRules = []) {
 export {
   runStructuralAnalysis
 };
-//# sourceMappingURL=chunk-EXRPABKC.js.map
+//# sourceMappingURL=chunk-ZI7CJJUW.js.map

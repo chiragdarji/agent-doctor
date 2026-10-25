@@ -20,7 +20,7 @@ agent-doctor [file] [options]
 | `--structural-only` | — | Skip semantic (LLM) layer; runs instantly, no API key required |
 | `--model <id>` | `claude-sonnet-4-6` | Override the LLM model (e.g. `gpt-4o`, `claude-opus-4-8`) |
 | `--fail-on <severity>` | `critical` | Exit code `1` threshold: `critical` \| `warning` \| `suggestion` |
-| `--format <fmt>` | `text` | Output format: `text` \| `json` |
+| `--format <fmt>` | `text` | Output format: `text` \| `json` \| `badge` (shields.io endpoint JSON) |
 
 ### Reporting
 
@@ -82,6 +82,9 @@ agent-doctor CLAUDE.md --fail-on warning
 
 # All files, JSON output for a dashboard script
 agent-doctor --all --format json
+
+# Shields.io badge endpoint (pipe to a static file served by your CI)
+agent-doctor CLAUDE.md --structural-only --format badge > badge.json
 
 # Preview auto-fixes without writing
 agent-doctor CLAUDE.md --fix --dry-run

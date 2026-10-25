@@ -4,6 +4,24 @@ All notable changes to `agent-doctor` are documented here.
 
 ---
 
+## [1.1.0] — 2026-10-25
+
+### Changed
+
+- **`todo-in-instructions` severity downgraded** from `critical` → `warning`. TODOs are unfinished work that deserve fixing, but rarely cause an agent to catastrophically misbehave the way an unclosed code block or leaked API key does.
+- **`todo-in-instructions` false-positive reduction** — markers inside fenced code blocks, Markdown table rows, and inline code spans are now skipped. Documentation tables that _describe_ the `todo-in-instructions` rule no longer self-trigger it.
+- **`sensitive-data` contextual placeholder detection** — the previous rule skipped any line containing the word "example" or "e.g." anywhere, which allowed real keys to slip through when an explanatory sentence appeared on the same line. The new logic checks only the 50 characters immediately surrounding (but outside) the matched value, making it resistant to key-in-paragraph false negatives while still ignoring documented illustrative values.
+- **`sensitive-data` expanded pattern coverage** — now also detects Slack tokens (`xoxb-…`, `xoxp-…`), Google API keys (`AIza…`), Stripe live secret keys (`sk_live_…`), GitHub fine-grained PATs (`github_pat_…`), and the Anthropic-specific key prefix (`sk-ant-…`).
+- **`sensitive-data` context masking** — the `context` field on the issue now shows a masked version (`sk-a****uvwx`) rather than the raw secret value.
+- **`--format badge`** — new output format that emits a [shields.io endpoint JSON](https://shields.io/endpoint) blob. Message format is `"pass · A · 97"` (no issues) or `"3 issues · C · 64"`. Useful for README status badges served from CI.
+
+### Added
+
+- `formatBadge` export in `src/output/badge.ts`
+- 17 new tests: `todo-in-instructions` code-block/table/inline-code skip tests; `sensitive-data` masking, Slack, Stripe, proximity false-negative, and far-word tests; `formatBadge` unit tests (9 cases)
+
+---
+
 ## [1.0.0] — 2026-06-08
 
 ### Added

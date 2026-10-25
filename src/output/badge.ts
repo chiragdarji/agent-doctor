@@ -9,7 +9,9 @@ interface ShieldsEndpoint {
 
 /**
  * Produces a shields.io endpoint JSON badge for the worst result across all files.
- * Green ≥85, yellow ≥60, red below 60.
+ *
+ * Message format: "pass · A · 97" or "2 issues · C · 64"
+ * Color: brightgreen (≥85), yellow (≥60), red (<60).
  */
 export function formatBadge(results: AnalysisResult[]): string {
   if (results.length === 0) {
@@ -30,16 +32,16 @@ export function formatBadge(results: AnalysisResult[]): string {
   const avgScore = Math.round(
     results.reduce((sum, r) => sum + r.score, 0) / results.length,
   );
+  const totalIssues = results.reduce((sum, r) => sum + r.issues.length, 0);
 
   const color = avgScore >= 85 ? 'brightgreen' : avgScore >= 60 ? 'yellow' : 'red';
+  const statusLabel = totalIssues === 0 ? 'pass' : `${totalIssues} issue${totalIssues > 1 ? 's' : ''}`;
+  const scoreDisplay = results.length === 1 ? `${results[0]!.score}` : `${avgScore} avg`;
 
   const badge: ShieldsEndpoint = {
     schemaVersion: 1,
     label: 'agent-doctor',
-    message:
-      results.length === 1
-        ? `${worstGrade} · ${results[0]!.score}`
-        : `${worstGrade} · ${avgScore} avg`,
+    message: `${statusLabel} · ${worstGrade} · ${scoreDisplay}`,
     color,
   };
 

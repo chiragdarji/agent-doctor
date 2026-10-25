@@ -7,7 +7,7 @@ import {
   calculateScore,
   computeReadiness,
   logger
-} from "./chunk-OQHAF3UJ.js";
+} from "./chunk-PUSOAFIH.js";
 import {
   parseFile,
   parseMarkdownContent,
@@ -15,7 +15,7 @@ import {
 } from "./chunk-XTBU7AIN.js";
 import {
   runStructuralAnalysis
-} from "./chunk-EXRPABKC.js";
+} from "./chunk-ZI7CJJUW.js";
 import "./chunk-N25LFLMI.js";
 
 // src/cli.ts
@@ -638,6 +638,36 @@ function formatResultsJson(results) {
   return JSON.stringify(results, null, 2);
 }
 
+// src/output/badge.ts
+function formatBadge(results) {
+  if (results.length === 0) {
+    return JSON.stringify(
+      { schemaVersion: 1, label: "agent-doctor", message: "no files", color: "lightgrey" },
+      null,
+      2
+    );
+  }
+  const GRADE_ORDER = ["A", "B", "C", "D", "F"];
+  const worstGrade = results.reduce(
+    (worst, r) => GRADE_ORDER.indexOf(r.grade) > GRADE_ORDER.indexOf(worst) ? r.grade : worst,
+    "A"
+  );
+  const avgScore = Math.round(
+    results.reduce((sum, r) => sum + r.score, 0) / results.length
+  );
+  const totalIssues = results.reduce((sum, r) => sum + r.issues.length, 0);
+  const color = avgScore >= 85 ? "brightgreen" : avgScore >= 60 ? "yellow" : "red";
+  const statusLabel = totalIssues === 0 ? "pass" : `${totalIssues} issue${totalIssues > 1 ? "s" : ""}`;
+  const scoreDisplay = results.length === 1 ? `${results[0].score}` : `${avgScore} avg`;
+  const badge = {
+    schemaVersion: 1,
+    label: "agent-doctor",
+    message: `${statusLabel} \xB7 ${worstGrade} \xB7 ${scoreDisplay}`,
+    color
+  };
+  return JSON.stringify(badge, null, 2);
+}
+
 // src/output/readiness-reporter.ts
 import chalk2 from "chalk";
 import { basename as basename2 } from "path";
@@ -1222,8 +1252,8 @@ function formatOrgGateJson(results, failOn) {
 
 // src/cli.ts
 var program = new Command();
-program.name("agent-doctor").description("Semantic health check for AI agent instruction files").version("1.0.1");
-program.argument("[file]", "Path to the instruction file to analyse").option("--all", "Discover and analyse all instruction files in the project").option("--fail-on <severity>", "Exit with code 1 if any issue meets this severity", "critical").option("--format <format>", "Output format: text or json", "text").option("--structural-only", "Skip semantic layer (no API key required)").option(
+program.name("agent-doctor").description("Semantic health check for AI agent instruction files").version("1.1.0");
+program.argument("[file]", "Path to the instruction file to analyse").option("--all", "Discover and analyse all instruction files in the project").option("--fail-on <severity>", "Exit with code 1 if any issue meets this severity", "critical").option("--format <format>", "Output format: text | json | badge (shields.io endpoint JSON)", "text").option("--structural-only", "Skip semantic layer (no API key required)").option(
   "--model <id>",
   "Override LLM model (e.g. gpt-4o uses OPENAI_API_KEY; claude-* uses ANTHROPIC_API_KEY)"
 ).option("--fix", "Auto-fix structural issues in-place (todo-in-instructions, unclosed-code-block, empty-section, missing-success-criteria)").option("--dry-run", "Preview --fix changes without writing to disk").option("--watch", "Re-run analysis on every file save \u2014 Ctrl+C to stop (single file only)").option("--init", "Scaffold a new agent instruction file template in the current directory").option("--type <type>", "Template type for --init: claude | cursor | agents", "claude").option("--force", "Overwrite existing files without prompting (use with --init)").option("--readiness-report", "Print a detailed per-dimension readiness breakdown instead of the standard issue list").option("--history [n]", "Show score trend for the last n git commits (default: 10)").option("--org [dir]", "Org-level health dashboard \u2014 recursively discovers all instruction files under dir (default: cwd)").option("--compare <ref>", "Compare current file against a git ref (HEAD~1) or another file path").option("--gate", "Orchestrator gate mode \u2014 structural-only check, JSON pass/fail, exit 0=safe exit 1=blocked").option("--mcp", "Start MCP server mode (v0.2)").action(async (file, opts) => {
@@ -1307,8 +1337,8 @@ program.argument("[file]", "Path to the instruction file to analyse").option("--
         process.exit(2);
       }
       const { parseMarkdownContent: parseMarkdownContent2, parseMdcContent: parseMdcContent2 } = await import("./parser-4NDNFOCB.js");
-      const { runStructuralAnalysis: runStructuralAnalysis2 } = await import("./structural-UHX4W6DY.js");
-      const { calculateScore: calculateScore2, calculateGrade: calculateGrade2, computeReadiness: computeReadiness2 } = await import("./analyser-WQCQZBGA.js");
+      const { runStructuralAnalysis: runStructuralAnalysis2 } = await import("./structural-AJIEMYE5.js");
+      const { calculateScore: calculateScore2, calculateGrade: calculateGrade2, computeReadiness: computeReadiness2 } = await import("./analyser-2A43NEX3.js");
       const isMdc = extname2(file).toLowerCase() === ".mdc";
       const structuralConfig = { ...config2, layers: ["structural"] };
       const parsed = isMdc ? parseMdcContent2(file, rawContent) : parseMarkdownContent2(file, rawContent);
@@ -1472,9 +1502,15 @@ program.argument("[file]", "Path to the instruction file to analyse").option("--
     process.stdout.write(
       (results.length === 1 ? formatResultJson(results[0]) : formatResultsJson(results)) + "\n"
     );
+  } else if (opts.format === "badge") {
+    process.stdout.write(formatBadge(results) + "\n");
   } else if (opts.readinessReport) {
     process.stdout.write(formatReadinessReport(results) + "\n");
   } else {
+    if (opts.format !== "text") {
+      process.stderr.write(`Unknown --format "${opts.format}" \u2014 valid values: text | json | badge. Defaulting to text.
+`);
+    }
     process.stdout.write(
       (results.length === 1 ? formatResult(results[0]) : formatResults(results)) + "\n"
     );

@@ -615,7 +615,25 @@ describe('todo-in-instructions', () => {
     const issues = todoInInstructions('# Rules\n- TODO: add tool constraints here', 'CLAUDE.md');
     expect(issues).toHaveLength(1);
     expect(issues[0]!.ruleId).toBe('todo-in-instructions');
-    expect(issues[0]!.severity).toBe('critical');
+    expect(issues[0]!.severity).toBe('warning');
+  });
+
+  it('does not flag TODO inside a fenced code block', () => {
+    const content = '# Rules\n```\n- TODO: example in code\n```\nNormal instruction.';
+    const issues = todoInInstructions(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('does not flag TODO in a table row', () => {
+    const content = '| todo-in-instructions | warning | all | TODO/FIXME markers |';
+    const issues = todoInInstructions(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('does not flag TODO inside inline code', () => {
+    const content = '# Rules\nThe `TODO` marker is a structural rule that checks for…';
+    const issues = todoInInstructions(content, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
   });
 
   it('flags FIXME marker', () => {
@@ -842,14 +860,17 @@ describe('sensitive-data', () => {
   });
 
   it('flags an OpenAI-style API key', () => {
-    const issues = sensitiveData('Set the key: sk-abcdefghijklmnopqrstuvwx', 'CLAUDE.md');
+    // Constructed at runtime to avoid GitHub secret scanning
+    const fakeKey = ['sk', 'abcdefghijklmnopqrstuvwx'].join('-');
+    const issues = sensitiveData(`Set the key: ${fakeKey}`, 'CLAUDE.md');
     expect(issues).toHaveLength(1);
     expect(issues[0]!.ruleId).toBe('sensitive-data');
     expect(issues[0]!.severity).toBe('critical');
   });
 
   it('flags a Bearer token', () => {
-    const issues = sensitiveData('Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9', 'CLAUDE.md');
+    const fakeJwt = ['eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9', 'payload', 'signature'].join('.');
+    const issues = sensitiveData(`Authorization: Bearer ${fakeJwt}`, 'CLAUDE.md');
     expect(issues).toHaveLength(1);
     expect(issues[0]!.ruleId).toBe('sensitive-data');
   });
@@ -861,12 +882,15 @@ describe('sensitive-data', () => {
   });
 
   it('flags a GitHub PAT', () => {
-    const issues = sensitiveData('Push with: ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ1234567890', 'CLAUDE.md');
+    // Deliberately not a real token — pattern test only
+    const fakePat = ['ghp', 'aBcDeFgHiJkLmNoPqRsTuVwXyZ1234567890'].join('_');
+    const issues = sensitiveData(`Push with: ${fakePat}`, 'CLAUDE.md');
     expect(issues).toHaveLength(1);
   });
 
   it('does not flag lines with example/placeholder language', () => {
-    const issues = sensitiveData('For example: sk-abcdefghijklmnopqrstuvwx (replace with your key)', 'CLAUDE.md');
+    const fakeKey = ['sk', 'abcdefghijklmnopqrstuvwx'].join('-');
+    const issues = sensitiveData(`For example: ${fakeKey} (replace with your key)`, 'CLAUDE.md');
     expect(issues).toHaveLength(0);
   });
 
@@ -877,6 +901,45 @@ describe('sensitive-data', () => {
 
   it('flags a private key block', () => {
     const issues = sensitiveData('-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAK\n-----END RSA PRIVATE KEY-----', 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+  });
+
+  it('masks the secret value in the context field', () => {
+    const fakeKey = ['sk', 'abcdefghijklmnopqrstuvwx'].join('-');
+    const issues = sensitiveData(`Set the key: ${fakeKey}`, 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.context).not.toContain(fakeKey);
+    expect(issues[0]!.context).toContain('****');
+  });
+
+  it('flags a Slack bot token', () => {
+    // Deliberately not a real token — pattern test only
+    const fakeSlack = ['xoxb', '111111111111', '222222222222', 'abcdefghijk'].join('-');
+    const issues = sensitiveData(`SLACK_TOKEN=${fakeSlack}`, 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.ruleId).toBe('sensitive-data');
+  });
+
+  it('flags a Stripe live secret key', () => {
+    // Deliberately not a real key — pattern test only
+    const fakeKey = ['sk', 'live', 'XXXXXXXXXXXXXXXXXXXXXXXX'].join('_');
+    const issues = sensitiveData(`STRIPE_KEY=${fakeKey}`, 'CLAUDE.md');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.ruleId).toBe('sensitive-data');
+  });
+
+  it('does not flag a key when "replace" appears right after it', () => {
+    const fakeKey = ['sk', 'abcdefghijklmnopqrstuvwx'].join('-');
+    const issues = sensitiveData(`${fakeKey} — replace with your key`, 'CLAUDE.md');
+    expect(issues).toHaveLength(0);
+  });
+
+  it('flags a key even when the word "example" appears far away on the same line', () => {
+    // "example" is >50 chars away from the key value — should still flag
+    // Key constructed at runtime to avoid triggering GitHub secret scanning
+    const far = 'x'.repeat(60);
+    const fakeAnthropic = ['sk', 'ant', 'api03', 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'].join('-');
+    const issues = sensitiveData(`ANTHROPIC_API_KEY=${fakeAnthropic} ${far} example`, 'CLAUDE.md');
     expect(issues).toHaveLength(1);
   });
 });

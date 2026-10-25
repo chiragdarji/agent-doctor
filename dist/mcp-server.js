@@ -10,7 +10,7 @@ import {
   multiFileSemantics,
   parseFile,
   runStructuralAnalysis
-} from "./chunk-TAD2AQDQ.js";
+} from "./chunk-B7XQKPOW.js";
 
 // src/mcp-server.ts
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
