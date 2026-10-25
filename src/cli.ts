@@ -28,6 +28,8 @@ import type { AnalysisResult, Severity } from './types.js';
 import type { InitType } from './init.js';
 import { initWorkflow } from './init-workflow.js';
 import type { WorkflowVariant } from './init-workflow.js';
+import { initPreCommit } from './init-pre-commit.js';
+import type { PreCommitVariant } from './init-pre-commit.js';
 
 const program = new Command();
 
@@ -61,6 +63,8 @@ program
   .option('--gate', 'Orchestrator gate mode — structural-only check, JSON pass/fail, exit 0=safe exit 1=blocked')
   .option('--init-workflow', 'Generate a GitHub Actions workflow file (.github/workflows/agent-doctor.yml)')
   .option('--workflow-variant <variant>', 'Workflow template: basic (run + fail) | sarif (+ upload to Code Scanning)', 'basic')
+  .option('--init-pre-commit', 'Install a pre-commit hook that blocks commits with critical issues')
+  .option('--pre-commit-variant <variant>', 'Hook type: native (.git/hooks/pre-commit) | pre-commit-framework (.pre-commit-config.yaml)', 'native')
   .option('--mcp', 'Start MCP server mode (v0.2)')
   .action(async (file: string | undefined, opts: {
     all?: boolean;
@@ -81,6 +85,8 @@ program
     gate?: boolean;
     initWorkflow?: boolean;
     workflowVariant: string;
+    initPreCommit?: boolean;
+    preCommitVariant: string;
     mcp?: boolean;
   }) => {
     if (opts.init) {
@@ -125,6 +131,32 @@ program
           process.stdout.write(`    Results will appear in the GitHub Security tab after the first run.\n`);
         } else {
           process.stdout.write(`    To also upload results to GitHub Security tab, run: --init-workflow --workflow-variant sarif\n`);
+        }
+      } catch (err) {
+        process.stderr.write(`${String(err)}\n`);
+        process.exit(1);
+      }
+      return;
+    }
+
+    if (opts.initPreCommit) {
+      const VALID_VARIANTS: PreCommitVariant[] = ['native', 'pre-commit-framework'];
+      const cwd = process.cwd();
+      let variant: PreCommitVariant;
+      if (VALID_VARIANTS.includes(opts.preCommitVariant as PreCommitVariant)) {
+        variant = opts.preCommitVariant as PreCommitVariant;
+      } else {
+        process.stderr.write(`Unknown --pre-commit-variant "${opts.preCommitVariant}" — valid values: native | pre-commit-framework. Defaulting to native.\n`);
+        variant = 'native';
+      }
+      try {
+        const result = await initPreCommit({ cwd, variant, force: opts.force ?? false });
+        const verb = result.existed ? 'Already present:' : 'Created';
+        process.stdout.write(`✅  ${verb} ${result.filePath}\n`);
+        if (variant === 'native') {
+          process.stdout.write(`    The hook runs structural checks before every commit.\n`);
+        } else {
+          process.stdout.write(`    Add the hook to your pre-commit config and run: pre-commit install\n`);
         }
       } catch (err) {
         process.stderr.write(`${String(err)}\n`);

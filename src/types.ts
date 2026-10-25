@@ -39,7 +39,10 @@ export type KnownRuleId =
   | 'redundant-instructions'
   | 'missing-examples'
   | 'instruction-ordering'
-  | 'prompt-injection';
+  | 'prompt-injection'
+  // v1.4.0 rules
+  | 'missing-handoff-protocol'
+  | 'missing-agent-scope';
 
 /**
  * Rule identifier. Well-known values are listed for autocomplete; plugin rules

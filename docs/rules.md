@@ -8,6 +8,8 @@ agent-doctor runs two layers of rules: **structural** (21 rules, zero API cost) 
 
 Structural rules are regex/AST-based checks that run in milliseconds. They require no API key.
 
+> **Rule count:** 23 structural rules, 10 semantic rules (33 total).
+
 ### Format & Frontmatter
 
 These rules apply primarily to Cursor `.mdc` files, which require YAML frontmatter for correct behaviour.
@@ -425,6 +427,73 @@ A task is described with no way for the agent to verify it completed correctly �
 **Good:** "Implement the payment gateway. Verify by running `npm test -- payment` — all 12 tests must pass."
 
 Maps to **Observable** dimension.
+
+---
+
+### AGENTS.md-specific Rules
+
+These rules only fire for files named `AGENTS.md` (case-insensitive). They are irrelevant for other instruction file types.
+
+---
+
+#### `missing-handoff-protocol`
+**Severity:** warning
+
+`AGENTS.md` files must describe what the agent does when it cannot complete a task — who or what it escalates to, how it transfers control, or what it does when a task is out of scope. Without this, agents in multi-agent architectures silently fail or attempt tasks beyond their capabilities.
+
+**Detected signals (any one satisfies the rule):**
+- Headings: "Escalate", "Handoff", "Fallback", "When to", "Limitations", "Transfer"
+- Body text: "escalate", "hand off", "hand-off", "delegate", "transfer to", "cannot help", "out of scope", "not responsible", "beyond my scope"
+
+**Bad:**
+```markdown
+# Code Review Agent
+
+## Tasks
+Review pull requests and suggest improvements.
+```
+
+**Good:**
+```markdown
+# Code Review Agent
+
+## Tasks
+Review pull requests and suggest improvements.
+
+## When to Escalate
+If the PR touches infrastructure code, escalate to the `#platform` team. If analysis fails after 2 retries, page the on-call engineer.
+```
+
+Maps to **Bounded** dimension.
+
+---
+
+#### `missing-agent-scope`
+**Severity:** warning
+
+`AGENTS.md` files should clearly state what the agent is responsible for **and** what it explicitly does not handle. In multi-agent systems, undefined scope causes agents to overlap, conflict, or attempt tasks outside their design envelope.
+
+**Detected signals (any one satisfies the rule):**
+- Headings: "Overview", "Scope", "Responsibilities", "Role", "Purpose", "Capabilities", "What this agent does"
+- Positive scope: "responsible for", "handles", "manages", "this agent is", "you are a/an …agent"
+- Boundary: "does not handle", "out of scope", "not responsible for", "limited to", "only handles"
+
+**Bad:**
+```markdown
+# Deployment Agent
+## Commands
+Run `./deploy.sh`.
+```
+
+**Good:**
+```markdown
+# Deployment Agent
+
+## Scope
+Handles deployments to staging and production. Does not manage infrastructure provisioning — use the Platform Agent for that.
+```
+
+Maps to **Bounded** dimension.
 
 ---
 

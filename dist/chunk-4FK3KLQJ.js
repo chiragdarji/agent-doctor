@@ -950,6 +950,53 @@ var promptInjection = (content, _filePath) => {
   return issues;
 };
 
+// src/rules/structural/missing-handoff-protocol.ts
+import { basename as basename4 } from "path";
+var HANDOFF_RE = /\b(escalat|hand.?off|delegat|transfer\s+to|when\s+to\s+(stop|ask|escalate|involve)|out.of.scope|cannot\s+(help|assist|do)|not\s+responsible|beyond\s+(my|this)\s+(scope|capabilit))/i;
+var HEADING_HANDOFF_RE = /\b(escalat|handoff|hand.off|delegat|limitation|scope|when\s+to|transfer|fallback)/i;
+var missingHandoffProtocol = (content, filePath) => {
+  const fileName = basename4(filePath).toLowerCase();
+  if (fileName !== "agents.md") return [];
+  const lines = content.split("\n");
+  for (const line of lines) {
+    if (HEADING_HANDOFF_RE.test(line) || HANDOFF_RE.test(line)) {
+      return [];
+    }
+  }
+  return [
+    {
+      ruleId: "missing-handoff-protocol",
+      severity: "warning",
+      message: "AGENTS.md has no handoff or escalation protocol",
+      suggestion: 'Add a section (e.g. "## When to Escalate") describing what is out of scope and how to transfer control to another agent or a human operator.'
+    }
+  ];
+};
+
+// src/rules/structural/missing-agent-scope.ts
+import { basename as basename5 } from "path";
+var SCOPE_POSITIVE_RE = /\b(responsible\s+for|handles?|manages?|this\s+agent\s+(is|will|can|does)|my\s+role\s+is|scope[:\s]|you\s+are\s+(?:an?\s+)?\w+\s+(?:agent|assistant|bot))\b/i;
+var SCOPE_BOUNDARY_RE = /\b(does\s+not\s+(handle|include|cover)|out\s+of\s+scope|not\s+(responsible|designed)\s+for|limited\s+to|only\s+(?:handles?|manages?)|(?:will|should|must)\s+not\s+(?:handle|attempt|perform))\b/i;
+var HEADING_SCOPE_RE = /\b(overview|scope|responsibilities|role|purpose|description|about\s+this|what\s+(this|i)\s+(agent|do)|capabilities)\b/i;
+var missingAgentScope = (content, filePath) => {
+  const fileName = basename5(filePath).toLowerCase();
+  if (fileName !== "agents.md") return [];
+  const lines = content.split("\n");
+  for (const line of lines) {
+    if (HEADING_SCOPE_RE.test(line) || SCOPE_POSITIVE_RE.test(line) || SCOPE_BOUNDARY_RE.test(line)) {
+      return [];
+    }
+  }
+  return [
+    {
+      ruleId: "missing-agent-scope",
+      severity: "warning",
+      message: "AGENTS.md has no defined scope or responsibility boundary",
+      suggestion: 'Add a scope section near the top (e.g. "## Scope") that describes what this agent is responsible for AND what it explicitly does not handle. Example: "Handles code review and CI triage. Does not deploy to production."'
+    }
+  ];
+};
+
 // src/analyser/structural.ts
 function runStructuralAnalysis(parsed, config, pluginRules = []) {
   const rules = [
@@ -979,8 +1026,11 @@ function runStructuralAnalysis(parsed, config, pluginRules = []) {
     redundantInstructions,
     missingExamples,
     instructionOrdering,
-    // v1.1.0 rules
-    promptInjection
+    // v1.2.0 rules
+    promptInjection,
+    // v1.4.0 rules
+    missingHandoffProtocol,
+    missingAgentScope
   ];
   const platform = detectPlatform(parsed.fileType);
   const rawIssues = [
@@ -1590,4 +1640,4 @@ export {
   DEFAULT_CONFIG,
   loadConfig
 };
-//# sourceMappingURL=chunk-ZRM5S4NM.js.map
+//# sourceMappingURL=chunk-4FK3KLQJ.js.map

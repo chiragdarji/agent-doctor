@@ -24,7 +24,7 @@ import {
   parseSections,
   resolveProvider,
   runStructuralAnalysis
-} from "./chunk-ZRM5S4NM.js";
+} from "./chunk-4FK3KLQJ.js";
 
 // src/fixer.ts
 import { readFileSync, writeFileSync } from "fs";
@@ -288,13 +288,17 @@ var AGENTS_TEMPLATE = `# Project Name \u2014 AGENTS.md
 > Replace every \`[placeholder]\` before use.
 > Validate: \`npx @chiragdarji/agent-doctor AGENTS.md\`
 
-## Project Overview
+## Overview
 
 [One-paragraph description of what this project does and its main purpose.]
 
 **Tech stack:** [e.g. Python \xB7 FastAPI \xB7 PostgreSQL]
 
 **Repository layout:** [brief directory summary]
+
+## Scope
+
+This agent is responsible for [specific domain, e.g. "managing the CI/CD pipeline and release process"]. It does not handle [out-of-scope domain, e.g. "infrastructure provisioning or database migrations"]. For those, use [other agent or human process].
 
 ## Workflow
 
@@ -328,6 +332,16 @@ Write code that follows these standards:
 - Keep code readable without comments.
 
 > \u2705 **Success criteria:** Code is ready when it passes lint checks and all tests remain green.
+
+## When to Escalate
+
+Stop and involve a human if:
+
+- The task requires accessing systems or credentials not listed under Available Tools.
+- The change is irreversible and you are uncertain about the impact (e.g. a data migration or deletion).
+- You encounter an ambiguity that cannot be resolved from the files already available.
+
+Transfer control by stopping work, summarising what you found, and stating clearly what decision is needed.
 
 ## What NOT To Do
 

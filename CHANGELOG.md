@@ -4,6 +4,32 @@ All notable changes to `agent-doctor` are documented here.
 
 ---
 
+## [1.4.0] — 2026-10-25
+
+### Added
+
+- **`missing-handoff-protocol` structural rule** (warning, AGENTS.md only) — flags `AGENTS.md` files that have no escalation or handoff language. In multi-agent systems every agent must know when it is out of its depth and how to transfer control. Fires only when no heading or sentence references escalation, handoff, delegation, fallback, or out-of-scope language. Maps to **Bounded** dimension.
+
+- **`missing-agent-scope` structural rule** (warning, AGENTS.md only) — flags `AGENTS.md` files that have no scope or responsibility boundary definition. An undefined scope causes agents to overlap and conflict in multi-agent architectures. Fires only when no heading or sentence describes what the agent handles or what it explicitly does not handle. Maps to **Bounded** dimension.
+
+- **`--init-pre-commit`** — installs a pre-commit hook that runs structural checks (`--fail-on critical`) on staged agent instruction files before every commit. Two variants:
+  - `native` (default): writes `.git/hooks/pre-commit`, sets `chmod +x`. Works with any git workflow.
+  - `pre-commit-framework`: writes `.pre-commit-config.yaml` with an agent-doctor hook entry for use with the [pre-commit framework](https://pre-commit.com/).
+  - `--force` overwrites an existing hook without prompting.
+
+### Tests
+
+- +13 new tests for `missing-handoff-protocol` (6) and `missing-agent-scope` (7)
+- +15 new tests for `initPreCommit` (native: 8, pre-commit-framework: 5)
+- Total: 533 tests, all pass
+
+### Documentation
+
+- `docs/rules.md` — added "AGENTS.md-specific Rules" section with entries for `missing-handoff-protocol` and `missing-agent-scope`; updated rule count to 23 structural / 10 semantic (33 total)
+- `docs/cli-reference.md` — added `--init-pre-commit` and `--pre-commit-variant` entries with examples
+
+---
+
 ## [1.3.0] — 2026-10-25
 
 ### Added

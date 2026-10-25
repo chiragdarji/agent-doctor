@@ -20,3 +20,5 @@ export { redundantInstructions } from './redundant-instructions.js';
 export { missingExamples } from './missing-examples.js';
 export { instructionOrdering } from './instruction-ordering.js';
 export { promptInjection } from './prompt-injection.js';
+export { missingHandoffProtocol } from './missing-handoff-protocol.js';
+export { missingAgentScope } from './missing-agent-scope.js';

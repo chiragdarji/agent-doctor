@@ -33,6 +33,8 @@ agent-doctor [file] [options]
 | `--gate` | Orchestrator gate mode — outputs machine-readable JSON pass/fail |
 | `--init-workflow` | Generate `.github/workflows/agent-doctor.yml` for CI |
 | `--workflow-variant <v>` | Workflow template: `basic` (run + fail) \| `sarif` (+ upload to GitHub Code Scanning) |
+| `--init-pre-commit` | Install a pre-commit hook that blocks commits with critical issues |
+| `--pre-commit-variant <v>` | Hook type: `native` (`.git/hooks/pre-commit`) \| `pre-commit-framework` (`.pre-commit-config.yaml`) |
 
 ### Editing
 
@@ -127,6 +129,12 @@ agent-doctor --init-workflow
 
 # Generate CI workflow with SARIF upload to GitHub Security tab
 agent-doctor --init-workflow --workflow-variant sarif
+
+# Install native pre-commit hook (runs structural checks before every commit)
+agent-doctor --init-pre-commit
+
+# Install pre-commit framework config entry
+agent-doctor --init-pre-commit --pre-commit-variant pre-commit-framework
 ```
 
 ---
