@@ -653,6 +653,201 @@ var missingToolList = (content, _filePath) => {
   ];
 };
 
+// src/rules/structural/sensitive-data.ts
+var SECRET_PATTERNS = [
+  // API key prefixes used by major providers
+  { re: /\bsk-[A-Za-z0-9]{20,}/g, label: "OpenAI/Anthropic API key (sk-...)" },
+  { re: /\bANTHROPIC_API_KEY\s*=\s*["']?sk-ant-[A-Za-z0-9\-_]{20,}/g, label: "Anthropic API key assignment" },
+  // Generic secret assignments with real-looking values (not placeholders)
+  { re: /\b(?:api[_-]?key|secret|password|passwd|token|access[_-]?key)\s*[=:]\s*["']?(?!<|YOUR|REPLACE|PLACEHOLDER|xxx|your)[A-Za-z0-9+/\-_]{16,}/gi, label: "Hardcoded credential" },
+  // Bearer tokens in headers
+  { re: /Bearer\s+[A-Za-z0-9\-_]{20,}/g, label: "Bearer token" },
+  // Private key blocks
+  { re: /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g, label: "Private key block" },
+  // AWS access keys
+  { re: /\bAKIA[A-Z0-9]{16}\b/g, label: "AWS access key ID" },
+  // GitHub personal access tokens
+  { re: /\bghp_[A-Za-z0-9]{20,}\b/g, label: "GitHub personal access token" }
+];
+var EXAMPLE_LINE_RE2 = /\b(example|e\.g\.|sample|placeholder|replace|your[-_ ]|<your|YOUR_|REDACTED|\[REDACTED\])\b/i;
+var sensitiveData = (content, _filePath) => {
+  const lines = content.split("\n");
+  const issues = [];
+  let inCodeBlock = false;
+  const seen = /* @__PURE__ */ new Set();
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    if (/^```|^~~~/.test(line.trim())) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+    if (EXAMPLE_LINE_RE2.test(line)) continue;
+    for (const { re, label } of SECRET_PATTERNS) {
+      re.lastIndex = 0;
+      const match = re.exec(line);
+      if (!match) continue;
+      const dedupeKey = `${label}:${i}`;
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+      issues.push({
+        ruleId: "sensitive-data",
+        severity: "critical",
+        message: `Possible ${label} found in instruction file`,
+        suggestion: "Remove the credential and replace with an environment variable reference (e.g. $API_KEY) or a placeholder like [REDACTED]",
+        line: i + 1,
+        context: line.trim().slice(0, 80)
+      });
+    }
+  }
+  return issues;
+};
+
+// src/rules/structural/missing-agent-persona.ts
+var PERSONA_RE = /\b(you are (a |an |the )?[a-z]|your role (is|:)|act as (a |an |the )?[a-z]|you will (act|serve|function) as|you('re| are) responsible for|your (primary |main |core )?(responsibility|purpose|goal|task) is)\b/i;
+var PERSONA_HEADING_RE = /\b(role|persona|identity|you are|about you|agent|assistant|overview)\b/i;
+var MIN_TOKEN_THRESHOLD = 80;
+var missingAgentPersona = (content, _filePath) => {
+  if (content.length / 4 < MIN_TOKEN_THRESHOLD) return [];
+  if (PERSONA_RE.test(content)) return [];
+  const sections = parseSections(content);
+  if (sections.some((s) => PERSONA_HEADING_RE.test(s.heading))) return [];
+  return [
+    {
+      ruleId: "missing-agent-persona",
+      severity: "warning",
+      message: "No agent persona or role definition found in this instruction file",
+      suggestion: 'Add a brief role statement near the top, e.g. "You are a senior TypeScript engineer..." to anchor agent behaviour',
+      line: 1
+    }
+  ];
+};
+
+// src/rules/structural/redundant-instructions.ts
+var MIN_DIRECTIVE_LENGTH = 20;
+var DUPLICATE_THRESHOLD = 3;
+function normalise(line) {
+  return line.toLowerCase().replace(/^[-*\d.)\s]+/, "").replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+function areSimilar(a, b) {
+  if (a === b) return true;
+  const wordsA = new Set(a.split(" ").filter((w) => w.length > 3));
+  const wordsB = new Set(b.split(" ").filter((w) => w.length > 3));
+  if (wordsA.size === 0 || wordsB.size === 0) return false;
+  let intersection = 0;
+  for (const w of wordsA) if (wordsB.has(w)) intersection++;
+  const union = wordsA.size + wordsB.size - intersection;
+  return intersection / union >= 0.75;
+}
+var redundantInstructions = (content, _filePath) => {
+  const lines = content.split("\n");
+  const issues = [];
+  let inCodeBlock = false;
+  const directives = [];
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i] ?? "";
+    if (/^```|^~~~/.test(raw.trim())) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+    if (inCodeBlock) continue;
+    const norm = normalise(raw);
+    if (norm.length >= MIN_DIRECTIVE_LENGTH) {
+      directives.push({ norm, raw: raw.trim(), line: i + 1 });
+    }
+  }
+  const reported = /* @__PURE__ */ new Set();
+  for (let i = 0; i < directives.length; i++) {
+    if (reported.has(i)) continue;
+    const cluster = [i];
+    for (let j = i + 1; j < directives.length; j++) {
+      if (reported.has(j)) continue;
+      if (areSimilar(directives[i].norm, directives[j].norm)) {
+        cluster.push(j);
+      }
+    }
+    if (cluster.length >= DUPLICATE_THRESHOLD) {
+      for (const idx of cluster) reported.add(idx);
+      const first = directives[i];
+      const lines_str = cluster.map((idx) => directives[idx].line).join(", ");
+      issues.push({
+        ruleId: "redundant-instructions",
+        severity: "warning",
+        message: `Directive repeated ${cluster.length} times (lines ${lines_str}): "${first.raw.slice(0, 60)}${first.raw.length > 60 ? "\u2026" : ""}"`,
+        suggestion: "Keep one authoritative occurrence and remove the duplicates to reduce token usage and avoid confusion",
+        line: first.line,
+        context: first.raw.slice(0, 80)
+      });
+    }
+  }
+  return issues;
+};
+
+// src/rules/structural/missing-examples.ts
+var EXAMPLE_HEADING_RE = /\b(examples?|samples?|snippets?|demos?|reference|illustration|usage|template|quick.?start)\b/i;
+var INLINE_EXAMPLE_RE = /\b(e\.g\.|for example|such as|like this|as follows|here is|here's)\b/i;
+var COMPLEXITY_SIGNALS = [
+  /\bif\b.*\bthen\b/i,
+  /\bwhen\b.*\b(use|call|invoke|run|execute)\b/i,
+  /\b(first|then|next|finally|after that|before)\b/i,
+  /\b(must|should|shall|always|never)\b/i,
+  /\b(unless|except|only if|provided that)\b/i
+];
+var MIN_WORDS = 40;
+var missingExamples = (content, _filePath) => {
+  const sections = parseSections(content);
+  const issues = [];
+  for (const section of sections) {
+    if (EXAMPLE_HEADING_RE.test(section.heading)) continue;
+    const wordCount = section.content.split(/\s+/).filter(Boolean).length;
+    if (wordCount < MIN_WORDS) continue;
+    if (/```|~~~/.test(section.content)) continue;
+    if (INLINE_EXAMPLE_RE.test(section.content)) continue;
+    const complexity = COMPLEXITY_SIGNALS.filter((re) => re.test(section.content)).length;
+    if (complexity < 3) continue;
+    issues.push({
+      ruleId: "missing-examples",
+      severity: "suggestion",
+      message: `Section "${section.heading}" has complex rules (${complexity} conditional clauses) but no examples`,
+      suggestion: 'Add a code block or "e.g." inline example to illustrate the expected behaviour \u2014 agents follow examples more reliably than abstract rules',
+      line: section.line,
+      context: section.heading
+    });
+  }
+  return issues;
+};
+
+// src/rules/structural/instruction-ordering.ts
+var SAFETY_HEADING_RE = /\b(security|auth(?:orization|entication)?|permission|access|constraint|restrict|limit|boundary|never|forbidden|prohibited|off.?limit|guardrail|safe)\b/i;
+var TASK_HEADING_RE = /\b(implement|build|create|deploy|develop|workflow|process|steps?|instructions?|tasks?|how to|getting started|usage|commands?|run|execute)\b/i;
+var TASK_CONTENT_RE = /\b(implement|build|create|deploy|execute|run the|use the|call|invoke)\b/i;
+var instructionOrdering = (content, _filePath) => {
+  const sections = parseSections(content);
+  const issues = [];
+  let lastTaskSectionLine = -1;
+  let lastTaskHeading = "";
+  for (const section of sections) {
+    const isTask = TASK_HEADING_RE.test(section.heading) || section.content.split(/\s+/).length > 20 && TASK_CONTENT_RE.test(section.content);
+    const isSafety = SAFETY_HEADING_RE.test(section.heading);
+    if (isTask && !isSafety) {
+      lastTaskSectionLine = section.line;
+      lastTaskHeading = section.heading;
+    }
+    if (isSafety && lastTaskSectionLine > 0 && section.line > lastTaskSectionLine) {
+      issues.push({
+        ruleId: "instruction-ordering",
+        severity: "suggestion",
+        message: `Safety/constraint section "${section.heading}" appears after task section "${lastTaskHeading}" (line ${lastTaskSectionLine})`,
+        suggestion: "Move security, access, and constraint sections before task instructions so they establish boundaries before the agent begins working",
+        line: section.line,
+        context: section.heading,
+        relatedLine: lastTaskSectionLine
+      });
+      lastTaskSectionLine = -1;
+    }
+  }
+  return issues;
+};
+
 // src/analyser/structural.ts
 function runStructuralAnalysis(parsed, config, pluginRules = []) {
   const rules = [
@@ -675,7 +870,13 @@ function runStructuralAnalysis(parsed, config, pluginRules = []) {
     // Agent readiness rules (Factory.ai + OpenAI Harness frameworks)
     missingSuccessCriteria,
     hardcodedEnvironment,
-    missingToolList
+    missingToolList,
+    // v1.0.0 rules
+    sensitiveData,
+    missingAgentPersona,
+    redundantInstructions,
+    missingExamples,
+    instructionOrdering
   ];
   const platform = detectPlatform(parsed.fileType);
   const rawIssues = [
@@ -1193,7 +1394,13 @@ var READINESS_DEDUCTIONS = {
   "todo-in-instructions": { documented: 20 },
   "empty-section": { documented: 10 },
   "ambiguous-pronoun": { documented: 10 },
-  "cross-file-conflict": { bounded: 15, documented: 10 }
+  "cross-file-conflict": { bounded: 15, documented: 10 },
+  // v1.0.0 rules
+  "sensitive-data": { documented: 25, reversible: 15 },
+  "missing-agent-persona": { documented: 15, bounded: 10 },
+  "redundant-instructions": { documented: 10 },
+  "missing-examples": { documented: 10 },
+  "instruction-ordering": { reversible: 10, bounded: 10 }
 };
 function computeReadiness(issues) {
   const dims = {
@@ -1279,4 +1486,4 @@ export {
   DEFAULT_CONFIG,
   loadConfig
 };
-//# sourceMappingURL=chunk-XX6OHGCO.js.map
+//# sourceMappingURL=chunk-TAD2AQDQ.js.map

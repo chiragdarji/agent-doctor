@@ -7,7 +7,7 @@ import {
   calculateScore,
   computeReadiness,
   logger
-} from "./chunk-S267EHLT.js";
+} from "./chunk-OQHAF3UJ.js";
 import {
   parseFile,
   parseMarkdownContent,
@@ -15,13 +15,13 @@ import {
 } from "./chunk-XTBU7AIN.js";
 import {
   runStructuralAnalysis
-} from "./chunk-RXZSUZDW.js";
+} from "./chunk-EXRPABKC.js";
 import "./chunk-N25LFLMI.js";
 
 // src/cli.ts
 import chalk7 from "chalk";
 import { Command } from "commander";
-import { resolve as resolve5, relative as relative3, dirname as dirname2, join as join2, basename as basename4, extname as extname2 } from "path";
+import { resolve as resolve5, relative as relative3, dirname as dirname2, join as join3, basename as basename5, extname as extname2 } from "path";
 import { existsSync as existsSync3, watch as fsWatch } from "fs";
 import { fileURLToPath } from "url";
 import { spawn } from "child_process";
@@ -149,9 +149,23 @@ var AUTO_FIXABLE = /* @__PURE__ */ new Set([
   "todo-in-instructions",
   "unclosed-code-block",
   "empty-section",
-  "missing-success-criteria"
+  "missing-success-criteria",
+  "sensitive-data",
+  "missing-agent-persona",
+  "hardcoded-environment"
 ]);
 var TODO_RE = /\b(TODO|FIXME|HACK|PLACEHOLDER|XXX|TBD)\b/;
+var REDACT_PATTERNS = [
+  /\bsk-[A-Za-z0-9]{20,}/g,
+  /Bearer\s+[A-Za-z0-9\-_]{20,}/g,
+  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g,
+  /\bAKIA[A-Z0-9]{16}\b/g,
+  /\bghp_[A-Za-z0-9]{20,}\b/g,
+  /\b(?:api[_-]?key|secret|password|passwd|token|access[_-]?key)\s*[=:]\s*["']?(?!<|YOUR|REPLACE|PLACEHOLDER|xxx|your)[A-Za-z0-9+/\-_]{16,}/gi
+];
+var UNIX_PATH_FIX_RE = /(?<![`'"/\w])(\/(?:home|usr|etc|var|root|opt|srv|tmp|proc|sys)\/\S+)/g;
+var WIN_PATH_FIX_RE = /\b([A-Z]:\\[\w\\.\- ]+)/g;
+var LOCALHOST_FIX_RE = /\blocalhost:(\d{2,5})\b/g;
 async function applyFixes(filePath, issues, options) {
   const dryRun = options?.dryRun ?? false;
   const fixedSet = /* @__PURE__ */ new Set();
@@ -163,8 +177,7 @@ async function applyFixes(filePath, issues, options) {
       skippedSet.add(issue.ruleId);
     }
   }
-  const hasTodo = issues.some((i) => i.ruleId === "todo-in-instructions");
-  if (hasTodo) {
+  if (issues.some((i) => i.ruleId === "todo-in-instructions")) {
     const lines = content.split("\n");
     let changed = false;
     const cleaned = lines.map((line) => {
@@ -179,8 +192,7 @@ async function applyFixes(filePath, issues, options) {
       fixedSet.add("todo-in-instructions");
     }
   }
-  const hasUnclosed = issues.some((i) => i.ruleId === "unclosed-code-block");
-  if (hasUnclosed) {
+  if (issues.some((i) => i.ruleId === "unclosed-code-block")) {
     if (!content.endsWith("\n")) content += "\n";
     content += "```\n";
     fixedSet.add("unclosed-code-block");
@@ -190,10 +202,8 @@ async function applyFixes(filePath, issues, options) {
   );
   if (emptyIssues.length > 0) {
     const lines = content.split("\n");
-    const sortedDesc = [...emptyIssues].sort((a, b) => b.line - a.line);
-    for (const issue of sortedDesc) {
-      const idx = issue.line - 1;
-      lines.splice(idx + 1, 0, "", "_No content yet \u2014 add instructions here._");
+    for (const issue of [...emptyIssues].sort((a, b) => b.line - a.line)) {
+      lines.splice(issue.line - 1 + 1, 0, "", "_No content yet \u2014 add instructions here._");
     }
     content = lines.join("\n");
     fixedSet.add("empty-section");
@@ -205,11 +215,9 @@ async function applyFixes(filePath, issues, options) {
     const lines = content.split("\n");
     const HEADING_RE = /^#{1,6}\s/;
     const PLACEHOLDER = '> \u2705 **Success criteria:** Done when _<describe the expected outcome \u2014 e.g. "all tests pass", "the feature works as expected">_';
-    const sortedDesc = [...successIssues].sort((a, b) => b.line - a.line);
-    for (const issue of sortedDesc) {
-      const headingIdx = issue.line - 1;
+    for (const issue of [...successIssues].sort((a, b) => b.line - a.line)) {
       let insertIdx = lines.length;
-      for (let i = headingIdx + 1; i < lines.length; i++) {
+      for (let i = issue.line; i < lines.length; i++) {
         if (HEADING_RE.test(lines[i] ?? "")) {
           insertIdx = i;
           break;
@@ -219,6 +227,45 @@ async function applyFixes(filePath, issues, options) {
     }
     content = lines.join("\n");
     fixedSet.add("missing-success-criteria");
+  }
+  if (issues.some((i) => i.ruleId === "sensitive-data")) {
+    let redacted = content;
+    for (const re of REDACT_PATTERNS) {
+      re.lastIndex = 0;
+      redacted = redacted.replace(re, (match) => {
+        const eqIdx = match.search(/[=:]\s*["']?/);
+        if (eqIdx > 0) return `${match.slice(0, eqIdx + 1)} [REDACTED]`;
+        return "[REDACTED]";
+      });
+    }
+    if (redacted !== content) {
+      content = redacted;
+      fixedSet.add("sensitive-data");
+    }
+  }
+  if (issues.some((i) => i.ruleId === "missing-agent-persona")) {
+    const PERSONA_STUB = "<!-- agent-doctor: update this persona statement -->\nYou are a helpful AI assistant. Describe your specific role, expertise, and constraints here.\n\n";
+    const fmMatch = /^---\n[\s\S]*?\n---\n/.exec(content);
+    if (fmMatch) {
+      const after = fmMatch.index + fmMatch[0].length;
+      content = content.slice(0, after) + PERSONA_STUB + content.slice(after);
+    } else {
+      content = PERSONA_STUB + content;
+    }
+    fixedSet.add("missing-agent-persona");
+  }
+  if (issues.some((i) => i.ruleId === "hardcoded-environment")) {
+    let fixed = content;
+    fixed = fixed.replace(
+      UNIX_PATH_FIX_RE,
+      (_, p) => p.startsWith("/home/") ? p.replace(/^\/home\/[^/]+/, "$HOME") : p.replace(/^\/[^/]+\/[^/]+/, "${PROJECT_ROOT}")
+    );
+    fixed = fixed.replace(WIN_PATH_FIX_RE, "%PROJECT_ROOT%\\");
+    fixed = fixed.replace(LOCALHOST_FIX_RE, "localhost:$PORT");
+    if (fixed !== content) {
+      content = fixed;
+      fixedSet.add("hardcoded-environment");
+    }
   }
   if (!dryRun && content !== original) {
     writeFileSync(filePath, content, "utf8");
@@ -909,12 +956,19 @@ function formatOrgReportJson(results, root) {
 
 // src/analyser/history.ts
 import { execFileSync } from "child_process";
-import { extname, dirname, relative as relative2, resolve as resolve4 } from "path";
+import { extname, dirname, relative as relative2, resolve as resolve4, basename as basename4, join as join2 } from "path";
 import { execFile } from "child_process";
+import { realpathSync } from "fs";
 import { promisify } from "util";
 var execFileAsync = promisify(execFile);
 async function runHistory(filePath, config, n = 10) {
-  const absPath = resolve4(process.cwd(), filePath);
+  const rawAbsPath = resolve4(process.cwd(), filePath);
+  let absPath;
+  try {
+    absPath = join2(realpathSync(dirname(rawAbsPath)), basename4(rawAbsPath));
+  } catch {
+    absPath = rawAbsPath;
+  }
   const fileDir = dirname(absPath);
   let gitRoot;
   try {
@@ -1168,7 +1222,7 @@ function formatOrgGateJson(results, failOn) {
 
 // src/cli.ts
 var program = new Command();
-program.name("agent-doctor").description("Semantic health check for AI agent instruction files").version("0.9.0");
+program.name("agent-doctor").description("Semantic health check for AI agent instruction files").version("1.0.1");
 program.argument("[file]", "Path to the instruction file to analyse").option("--all", "Discover and analyse all instruction files in the project").option("--fail-on <severity>", "Exit with code 1 if any issue meets this severity", "critical").option("--format <format>", "Output format: text or json", "text").option("--structural-only", "Skip semantic layer (no API key required)").option(
   "--model <id>",
   "Override LLM model (e.g. gpt-4o uses OPENAI_API_KEY; claude-* uses ANTHROPIC_API_KEY)"
@@ -1200,7 +1254,7 @@ program.argument("[file]", "Path to the instruction file to analyse").option("--
     return;
   }
   if (opts.mcp) {
-    const mcpEntry = join2(dirname2(fileURLToPath(import.meta.url)), "mcp-server.js");
+    const mcpEntry = join3(dirname2(fileURLToPath(import.meta.url)), "mcp-server.js");
     const child = spawn(process.execPath, [mcpEntry], { stdio: "inherit" });
     child.on("exit", (code) => process.exit(code ?? 0));
     return;
@@ -1253,8 +1307,8 @@ program.argument("[file]", "Path to the instruction file to analyse").option("--
         process.exit(2);
       }
       const { parseMarkdownContent: parseMarkdownContent2, parseMdcContent: parseMdcContent2 } = await import("./parser-4NDNFOCB.js");
-      const { runStructuralAnalysis: runStructuralAnalysis2 } = await import("./structural-ULGQTOMV.js");
-      const { calculateScore: calculateScore2, calculateGrade: calculateGrade2, computeReadiness: computeReadiness2 } = await import("./analyser-DHGPKPMH.js");
+      const { runStructuralAnalysis: runStructuralAnalysis2 } = await import("./structural-UHX4W6DY.js");
+      const { calculateScore: calculateScore2, calculateGrade: calculateGrade2, computeReadiness: computeReadiness2 } = await import("./analyser-WQCQZBGA.js");
       const isMdc = extname2(file).toLowerCase() === ".mdc";
       const structuralConfig = { ...config2, layers: ["structural"] };
       const parsed = isMdc ? parseMdcContent2(file, rawContent) : parseMarkdownContent2(file, rawContent);
@@ -1436,7 +1490,7 @@ program.argument("[file]", "Path to the instruction file to analyse").option("--
       process.exit(2);
     }
     process.stdout.write(`
-\u{1F441}  Watching ${basename4(watchTarget)} for changes\u2026 (Ctrl+C to stop)
+\u{1F441}  Watching ${basename5(watchTarget)} for changes\u2026 (Ctrl+C to stop)
 `);
     let debounce;
     fsWatch(watchTarget, () => {

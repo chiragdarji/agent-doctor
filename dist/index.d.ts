@@ -1,7 +1,7 @@
 type Severity = 'critical' | 'warning' | 'suggestion';
 type Grade = 'A' | 'B' | 'C' | 'D' | 'F';
 /** Well-known rule identifiers — listed for IDE autocomplete and compile-time checks. */
-type KnownRuleId = 'decision-loop' | 'vague-boundary' | 'tool-mismatch' | 'missing-fallback' | 'scope-bleed' | 'contradiction' | 'ambiguous-pronoun' | 'over-permissive' | 'missing-recovery-strategy' | 'unobservable-outcome' | 'cross-file-conflict' | 'missing-frontmatter' | 'missing-always-apply' | 'legacy-format' | 'token-budget-exceeded' | 'empty-section' | 'duplicate-heading' | 'missing-description' | 'unclosed-code-block' | 'conflicting-frontmatter' | 'missing-file-glob' | 'heading-depth-skip' | 'negation-heavy' | 'todo-in-instructions' | 'missing-success-criteria' | 'hardcoded-environment' | 'missing-tool-list';
+type KnownRuleId = 'decision-loop' | 'vague-boundary' | 'tool-mismatch' | 'missing-fallback' | 'scope-bleed' | 'contradiction' | 'ambiguous-pronoun' | 'over-permissive' | 'missing-recovery-strategy' | 'unobservable-outcome' | 'cross-file-conflict' | 'missing-frontmatter' | 'missing-always-apply' | 'legacy-format' | 'token-budget-exceeded' | 'empty-section' | 'duplicate-heading' | 'missing-description' | 'unclosed-code-block' | 'conflicting-frontmatter' | 'missing-file-glob' | 'heading-depth-skip' | 'negation-heavy' | 'todo-in-instructions' | 'missing-success-criteria' | 'hardcoded-environment' | 'missing-tool-list' | 'sensitive-data' | 'missing-agent-persona' | 'redundant-instructions' | 'missing-examples' | 'instruction-ordering';
 /**
  * Rule identifier. Well-known values are listed for autocomplete; plugin rules
  * may use any string (e.g. `'my-org/no-emoji'`).
@@ -178,12 +178,14 @@ interface FixResult {
  *
  * Fixed rules:
  *   - `todo-in-instructions`      → replaces offending line with an HTML comment
- *   - `unclosed-code-block`       → appends closing ``` fence at end of file
+ *   - `unclosed-code-block`       → appends closing fence at end of file
  *   - `empty-section`             → inserts a placeholder line after the heading
  *   - `missing-success-criteria`  → appends a success-criteria blockquote at end of section
+ *   - `sensitive-data`            → redacts matched credentials with [REDACTED]
+ *   - `missing-agent-persona`     → prepends a persona stub at the top of the file
+ *   - `hardcoded-environment`     → replaces absolute paths with env-var placeholders
  *
  * Non-fixable rules are reported in `skipped`.
- * `legacy-format` is always skipped — the file rename must be done manually.
  *
  * @param filePath - absolute path to the instruction file
  * @param issues   - issues array from structural/semantic analysis
